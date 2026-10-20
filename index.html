@@ -191,6 +191,51 @@
   body.A #band button:hover:not([aria-pressed="true"]){background:#d8ff3a}
   body.A #status{left:calc(20px*var(--u))}
   body.A #frames{right:calc(20px*var(--u))}
+
+  /* ===== v31: phone layout (body.M, set by JS under 900 px wide or 520 px tall). Desktop frame A is untouched. ===== */
+  html.M,body.A.M{height:auto;overflow-x:hidden;overflow-y:auto}
+  body.A.M{display:flex;flex-direction:column;min-height:100vh;--u:1;padding:0 0 calc(18px + env(safe-area-inset-bottom,0px))}
+  body.A.M #title{position:relative;left:auto;top:auto;margin:calc(14px + env(safe-area-inset-top,0px)) 16px 0}
+  body.A.M #title svg{width:calc(100vw - 32px)!important;height:auto!important}
+  body.A.M #aslogan,body.A.M #r2,body.A.M #r3,body.A.M #readout{display:none}
+  body.A.M #r1{position:relative;display:block;left:auto;right:auto;top:auto;margin:10px 16px 0;height:5px}
+  body.A.M #stage{position:relative;left:auto;top:auto;right:auto;bottom:auto;margin:10px 16px 0;height:min(62vh,calc((100vw - 32px)*1.25));min-height:300px;flex:none}
+  body.A.M #status{left:10px;right:10px;bottom:10px;max-width:none;font-size:12px;line-height:1.25}
+  body.A.M #frames{top:8px;right:10px;bottom:auto;font-size:11px}
+  body.A.M #heardTag{font-size:17px;bottom:64px;max-width:90%}
+  body.A.M #band{position:relative;left:auto;right:auto;top:auto!important;bottom:auto;width:auto;height:auto;margin:12px 16px 0;padding:0;border-top:0;overflow:visible;display:flex;flex-direction:column}
+  body.A.M #actions{order:1;display:grid;grid-template-columns:1fr 1fr;border-bottom:5px solid var(--ink)}
+  body.A.M #actions .word{grid-column:1/-1;padding:8px 0 10px;border-bottom:2px solid var(--ink)}
+  body.A.M #actions .word label{font-size:12px}
+  body.A.M #word{font-size:26px;width:100%}
+  body.A.M #actions .big{min-height:64px;font-size:20px;padding:8px 10px;justify-content:flex-start;gap:10px;border:0;border-bottom:1px solid var(--ink)}
+  body.A.M #actions #cam,body.A.M #actions #rec{border-right:1px solid var(--ink)}
+  body.A.M #actions .pair,body.A.M #actions .small{grid-column:1/-1;min-height:56px;font-size:20px;border-bottom:0}
+  body.A.M #band svg.block{width:30px;height:auto}
+  body.A.M #layers{order:2;position:relative;left:auto;right:auto;top:auto!important;width:auto;margin:14px 0 0;padding:0}
+  body.A.M #lylist{max-height:none!important} body.A.M #lylist li{height:auto!important;min-height:44px}
+  body.A.M #lylist button{font-size:15px;padding:10px 4px}
+  body.A.M #layers .tools button{font-size:14px;min-height:44px;padding:8px 10px}
+  body.A.M #layers .head{font-size:13px}
+  body.A.M #switches{order:3;display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--ink);margin-top:14px;border-top:2px solid var(--ink);border-bottom:5px solid var(--ink)}
+  body.A.M #switches button{background:var(--lime);min-height:52px;font-size:15px;padding:6px 8px;border:0;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px}
+  body.A.M #switches .sizerow{order:99;grid-column:1/-1;background:var(--lime);min-height:52px;font-size:15px;padding:6px 8px;border:0}
+  body.A.M #credit{position:relative;left:auto;bottom:auto;margin:16px 16px 0;font-size:12px;line-height:1.5}
+  body.A.M #picker{position:fixed;inset:0;width:auto;border:0;z-index:70;padding:calc(12px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px))}
+  body.A.M #pgrid button{min-height:56px;font-size:17px}
+  body.A.M #vhelp{left:16px!important;right:16px;top:calc(16px + env(safe-area-inset-top,0px))!important;width:auto;max-height:calc(100vh - 32px)}
+  body.A.M #intro,body.A.M #guide{width:calc(100vw - 32px);max-height:calc(100vh - 32px);overflow:auto;padding:16px}
+  body.A.M #intro p,body.A.M #guide p{grid-template-columns:72px 1fr;font-size:14px}
+  body.A.M #consent{width:calc(100vw - 32px);top:calc(12px + env(safe-area-inset-top,0px))}
+  body.A.M #handmenu{grid-template-columns:repeat(3,1fr);width:calc(100vw - 24px);left:12px!important}
+  body.A.M #handmenu button{height:88px;padding:8px} body.A.M #handmenu button b{font-size:17px} body.A.M #handmenu button i{font-size:11px}
+  body.A.M #mirror.corner{width:34%;right:10px;top:34px}
+  /* v31 review fixes (web-design-reviewer, 2026-10-20): tap targets and phone sideways */
+  body.A.M #frames{font-size:13px} body.A.M #frames a{display:inline-block;padding:10px 4px}
+  body.A.M #pclose{min-height:48px;min-width:88px;font-size:17px}
+  body.A.M #layers .tools button{min-width:52px} body.A.M #lylist .ly-eye{min-width:56px;min-height:44px}
+  body.A.M #sz{height:44px}
+  @media (max-height:519px){ body.A.M #title,body.A.M #r1{display:none} body.A.M #stage{height:calc(100vh - 24px);min-height:0;margin-top:12px} }
 </style>
 </head>
 <body>
@@ -220,7 +265,6 @@ Mic off: turn on Voice to change the word by saying it.</div>
     <div id="ptabs"></div>
     <div id="psearch"><input id="pq" placeholder="Any Google Font, by name" autocomplete="off" spellcheck="false"><button id="pgo">Use</button></div>
     <div id="pgrid"></div>
-  </div>
   </div>
 </div>
 <div id="band">
@@ -253,7 +297,7 @@ Mic off: turn on Voice to change the word by saying it.</div>
 <div id="consent" role="dialog" aria-labelledby="consentText">
     <p id="consentText"></p>
     <div class="row"><button id="consentYes">Use Google</button><button id="consentNo">No, type instead</button></div>
-
+</div>
 <div id="vhelp" hidden role="dialog" aria-labelledby="vhelpT">
   <div class="vh-top"><b id="vhelpT">What you can say</b><button id="vhelpClose">Hide</button></div>
   <dl>
@@ -701,14 +745,31 @@ function moveLayer(d){ const j=act+d; if(j<0||j>=layers.length) return; [layers[
 function selectLayer(i){ if(i<0||i>=layers.length) return; act=i; syncLayer(); }
 function toggleVisible(i){ layers[i].visible=!layers[i].visible; drawLayerList(); dirty=true; }
 $("lyAdd").onclick=addLayer; $("lyDel").onclick=deleteLayer; $("lyUp").onclick=()=>moveLayer(1); $("lyDown").onclick=()=>moveLayer(-1);
+
+// ---------- v31: phone layout ----------
+// Under 900 px wide (phones, tablets upright) or under 520 px tall (phones sideways) the page stacks: title, canvas, then the controls in a scrolling column. Layers move out of the canvas into the controls.
+const TOUCH=matchMedia("(pointer:coarse)").matches;
+const INTRO_SRC={};
+function setMobile(){
+  const m=innerWidth<900||innerHeight<520, was=document.body.classList.contains("M");
+  document.body.classList.toggle("M",m); document.documentElement.classList.toggle("M",m);
+  if(m&&!was){ $("band").insertBefore($("layers"),$("switches")); ["layers","band"].forEach(id=>$(id).style.top=""); }
+  if(!m&&was){ stage.appendChild($("layers")); }
+  // help text that points at the right-hand column says "below" on a phone, and "finger" instead of "mouse" on touch screens
+  document.querySelectorAll("#intro em,#guide em").forEach((el,i)=>{ if(!(i in INTRO_SRC)) INTRO_SRC[i]=el.textContent;
+    let t=INTRO_SRC[i]; if(m) t=t.replace(/on the right/g,"below"); if(TOUCH) t=t.replace(/for the mouse/g,"for your finger").replace(/with the mouse/g,"with your finger").replace(/Press E or say/g,"Say"); el.textContent=t; });
+  if(TOUCH){ const st=$("status"); st.textContent=st.textContent.replace(/with the mouse/g,"with your finger"); }
+  return m;
+}
 // Frame A layout scales with the window: one unit (--u) drives margins, column width, type and icons.
 let U=1;
-function placeBand(){ if(!document.body.classList.contains("A")) return;
+function placeBand(){ if(!document.body.classList.contains("A")||document.body.classList.contains("M")) return;
   const rb=$("readout").getBoundingClientRect(); $("layers").style.top=Math.round(rb.bottom+8*U)+"px";
   const lb=$("layers").getBoundingClientRect(); $("band").style.top=Math.round(lb.bottom+8*U)+"px"; }
 function fitTitle(){ const svg=$("title").querySelector("svg"); if(!svg) return;
   const nat=+svg.getAttribute("width"), avail=innerWidth-(328+24*3+8)*U; svg.style.width=Math.max(120,Math.min(nat*U,avail))+"px"; svg.style.height="auto"; }
 function layoutA(){ if(!document.body.classList.contains("A")) return;
+  if(setMobile()){ U=1; document.body.style.setProperty("--u",1); return; }
   U=Math.max(.62,Math.min(2,Math.min(innerWidth/1440,innerHeight/900)));
   for(let i=0;i<12;i++){ document.body.style.setProperty("--u",U); fitTitle(); placeBand();
     const b=$("band"); if(b.scrollHeight<=b.clientHeight+1||U<=.62) break; U*=.95; }
@@ -734,6 +795,7 @@ function resize(){
   makeTargets(); layers.forEach(L=>{ uploadField(L); buildWord(L); });
 }
 window.addEventListener("resize",()=>{ layoutA(); resize(); });
+addEventListener("load",()=>{ layoutA(); resize(); }); matchMedia("(max-width:899px), (max-height:519px)").addEventListener("change",()=>{ layoutA(); resize(); });
 let wordTimer; input.addEventListener("input",()=>{ const L=A(); L.word=input.value; drawLayerList(); clearTimeout(wordTimer); wordTimer=setTimeout(()=>buildWord(L),120); });
 
 // ---------- switches ----------
@@ -878,7 +940,7 @@ function showRing(el,cx,cy,grab){ const r=stage.getBoundingClientRect(); el.styl
 const video=$("video"), statusEl=$("status"), camBtn=$("cam");
 let landmarker=null, camState="off", stream=null, lastVideoTime=-1;
 const hands=[0,1].map(i=>({el:$("ring"+i),seen:false,lost:99,x:0,y:0,u:0,v:0,grab:false,fistT:0,clicking:false,sculpting:false,hover:null}));
-function setStatus(t){ statusEl.textContent=t; }
+function setStatus(t){ statusEl.textContent=TOUCH?t.replace(/with the mouse/g,"with your finger"):t; }
 camBtn.onclick=async()=>{
   if(camState==="on"){ stopCam(); return; }
   try{
