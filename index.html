@@ -1,0 +1,1268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sculpt Type</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<style>
+  :root{ --ink:#0b0b0a; --paper:#f2f0ea; --stone:#e6e4de; --magenta:#ff2e88; --band:168px; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--ink);overflow:hidden}
+  body{font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;color:var(--paper);-webkit-font-smoothing:antialiased}
+  #stage{position:absolute;left:0;top:0;right:0;bottom:var(--band);background:var(--ink);color:var(--paper);overflow:hidden;touch-action:none;cursor:grab}
+  #stage.grabbing{cursor:grabbing}
+  #stage.print{background:var(--stone);color:var(--ink)}
+  #gl{position:absolute;inset:0;width:100%;height:100%}
+  #bgimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;pointer-events:none}
+  #bgdim{position:absolute;inset:0;background:#0b0b0a;opacity:0;display:none;pointer-events:none}
+  #picker.bgs{bottom:auto}
+  #stage.hasbg #gl{filter:drop-shadow(0 6px 14px rgba(0,0,0,.55))}
+  #bgcredit{position:absolute;left:12px;top:10px;z-index:3;font-size:11px;font-weight:600;color:rgba(242,240,234,.85);display:none;text-decoration:underline}
+  #bgresults{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px}
+  #bgresults button{padding:0;height:86px;border:2px solid transparent;overflow:hidden;position:relative}
+  #bgresults button img{width:100%;height:100%;object-fit:cover;display:block}
+  #bgresults button i{position:absolute;left:4px;bottom:3px;font:600 10px/1 "Helvetica Neue",Arial,sans-serif;color:#f2f0ea;text-shadow:0 1px 2px #000;text-transform:none}
+  #bgresults button[aria-current="true"]{border-color:var(--paper)}
+  .bgrow{display:flex;gap:0;margin:6px 0} #pgrid .bgrow button{flex:1;justify-content:center;font:900 15px/1 "Helvetica Neue",Arial,sans-serif;font-stretch:condensed;text-transform:uppercase;min-height:40px;border:1px solid rgba(242,240,234,.45);margin-right:-1px}
+  #pgrid .bgrow button[aria-current="true"]{background:var(--paper);color:var(--ink)}
+  .bgnote{font-size:12px;line-height:1.35;color:rgba(242,240,234,.8);margin:6px 0}
+  .bgfield{display:flex;margin-top:6px} .bgfield input{flex:1;background:transparent;border:0;border-bottom:2px solid var(--paper);color:var(--paper);font:700 15px "Helvetica Neue",Arial,sans-serif;padding:6px 2px;outline:none}
+  .bgfield button{font-size:14px;padding:6px 12px;border:2px solid var(--paper);margin-left:8px}
+  #fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;display:none;z-index:1}
+  body.print:not(.A) #title svg{fill:var(--ink)} body.print:not(.A) #readout{color:var(--ink)}
+  #title{position:absolute;left:28px;top:28px;pointer-events:none;z-index:2}
+  svg.block{display:block}
+  .aonly{display:none}
+  #readout{position:absolute;z-index:2;right:28px;top:28px;width:280px;text-align:right;font-size:11px;line-height:14px;font-weight:500;font-stretch:condensed;pointer-events:none}
+  #readout b{font-weight:900;text-transform:uppercase}
+  .ring{position:absolute;width:30px;height:30px;margin:-15px 0 0 -15px;border:2px solid var(--paper);border-radius:50%;
+        box-shadow:0 0 0 1px var(--ink),inset 0 0 0 1px var(--ink);pointer-events:none;display:none;z-index:3}
+  .ring.grab::after{content:"";position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;background:var(--paper);border-radius:50%;box-shadow:0 0 0 1px var(--ink)}
+  #status{white-space:pre-line;position:absolute;left:28px;bottom:24px;font-size:13px;font-weight:700;font-stretch:condensed;pointer-events:none;max-width:62%;z-index:2}
+  #frames{position:absolute;right:28px;bottom:24px;font-size:12px;font-weight:700;z-index:3}
+  #frames a{color:inherit}
+  #mirror{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:none;pointer-events:none}
+  #mirror.full{display:block;opacity:.5}
+  #mirror.corner{display:block;inset:auto;right:20px;top:20px;width:24%;height:auto;aspect-ratio:16/9;opacity:1;outline:2px solid var(--paper)}
+  body:not(.A) #layers{top:76px;left:28px}
+  #layers{position:absolute;left:20px;top:20px;width:236px;z-index:4;color:var(--paper);font-stretch:condensed}
+  #layers .head{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;font-weight:900;text-transform:uppercase;border-bottom:2px solid var(--paper);padding-bottom:4px}
+  #lylist{list-style:none;margin:0;padding:0}
+  #lylist li{display:flex;border-bottom:1px solid rgba(242,240,234,.35)}
+  #lylist button{color:var(--paper);font-size:13px;padding:6px 4px}
+  #lylist .ly-sel{flex:1;gap:6px;text-transform:none;font-weight:700;overflow:hidden;white-space:nowrap}
+  #lylist .ly-sel i{font-style:normal;font-weight:500;opacity:.7;margin-left:auto;padding-left:6px}
+  #lylist .ly-eye{font-size:11px;padding:6px 6px}
+  #lylist li.on{background:var(--paper)} #lylist li.on button{color:var(--ink)}
+  #lylist li.hidden .ly-sel{opacity:.4;text-decoration:line-through}
+  #layers .tools{display:flex;gap:0;margin-top:6px}
+  #layers .tools button{color:var(--paper);font-size:12px;padding:5px 6px;border:1px solid rgba(242,240,234,.5);margin-right:-1px}
+  #layers .tools{flex-wrap:wrap} #layers .tools button:first-child{flex:1 1 100%;justify-content:center;margin-bottom:-1px}
+  #layers button:hover{text-decoration:underline}
+  body.A #layers{position:fixed;left:auto;right:calc(24px*var(--u));top:calc(226px*var(--u));width:calc(328px*var(--u));color:var(--ink);padding:0 0 0 calc(4px*var(--u));z-index:3}
+  body.A #layers .head{border-bottom-color:var(--ink)}
+  body.A #lylist{max-height:calc(78px*var(--u));overflow:auto} body.A #lylist li{height:calc(26px*var(--u))}
+  body.A #lylist li{border-bottom-color:rgba(11,11,10,.3)}
+  body.A #lylist button{color:var(--ink)}
+  body.A #lylist li.on{background:var(--ink)} body.A #lylist li.on button{color:var(--lime)}
+  body.A #layers .tools button{color:var(--ink);border-color:var(--ink)}
+  body.A #layers .tools{flex-wrap:nowrap} body.A #layers .tools button:first-child{flex:1;margin-bottom:0}
+  body.print #layers{color:var(--ink)} body.print #lylist button,body.print #layers .tools button{color:var(--ink)}
+  .handmark{position:fixed;width:30px;height:30px;margin:-15px 0 0 -15px;border:2px solid var(--paper);border-radius:50%;box-shadow:0 0 0 1px var(--ink),inset 0 0 0 1px var(--ink);pointer-events:none;display:none;z-index:50}
+  .handmark::before{content:attr(data-side);position:absolute;left:100%;top:-14px;margin-left:4px;font:900 13px/1 "Helvetica Neue",Arial,sans-serif;color:var(--paper);background:var(--ink);padding:2px 4px}
+  .handmark.grab{background:radial-gradient(circle,var(--paper) 0 4px,transparent 5px)}
+  .handmark.menu{border-radius:0;width:36px;height:36px;margin:-18px 0 0 -18px;border:3px solid var(--ink);box-shadow:0 0 0 2px var(--paper),inset 0 0 0 2px var(--paper)}
+  .handmark.menu.grab{background:var(--ink)}
+  .handover{box-shadow:inset 0 0 0 4px var(--ink),inset 0 0 0 6px var(--paper)!important}
+  .handpress{background:var(--ink)!important;color:var(--paper)!important}
+  #picker{position:absolute;right:12px;top:12px;bottom:12px;width:min(390px,38%);background:var(--ink);border:2px solid var(--paper);z-index:6;display:flex;flex-direction:column;padding:12px 14px;color:var(--paper);overflow:auto}
+  #picker[hidden]{display:none}
+  #picker .phead{display:flex;justify-content:space-between;align-items:center;font-weight:900;font-size:15px;text-transform:uppercase;font-stretch:condensed;border-bottom:2px solid var(--paper);padding-bottom:6px}
+  #picker button{color:var(--paper)}
+  #pclose{font-size:15px;padding:4px 10px;border:2px solid var(--paper)}
+  #ptabs{display:flex;flex-wrap:wrap;margin:8px 0 6px}
+  #ptabs button{font-size:14px;padding:0 12px;min-height:44px;min-width:72px;justify-content:center;border:1px solid rgba(242,240,234,.45);margin:0 -1px -1px 0}
+  #ptabs button[aria-current="true"]{background:var(--paper);color:var(--ink)}
+  #psearch{display:none;gap:0;margin:2px 0 8px} #picker.fonts #psearch{display:flex}
+  #pq{flex:1;background:transparent;border:0;border-bottom:2px solid var(--paper);color:var(--paper);font:700 16px "Helvetica Neue",Arial,sans-serif;padding:6px 2px;outline:none}
+  #pgo{font-size:14px;padding:6px 12px;border:2px solid var(--paper);margin-left:8px}
+  #pgrid{display:grid;grid-template-columns:1fr 1fr;gap:0}
+  #pgrid button{min-height:58px;padding:6px 10px;border:1px solid rgba(242,240,234,.3);margin:0 -1px -1px 0;font-size:18px;text-transform:none;font-weight:400;font-stretch:normal;line-height:1.05;justify-content:flex-start;overflow:hidden}
+  #pgrid button[aria-current="true"]{background:var(--paper);color:var(--ink)}
+  #pgrid button.more{font:900 16px/1 "Helvetica Neue",Arial,sans-serif;text-transform:uppercase;justify-content:center;background:rgba(242,240,234,.12)}
+  #pgrid button .sw{width:22px;height:22px;flex:none;border:1px solid var(--paper)}
+  #picker.mats #pgrid button,#picker.cols #pgrid button{font:900 17px/1.05 "Helvetica Neue",Arial,sans-serif;font-stretch:condensed;text-transform:uppercase}
+  .sizerow{display:flex;align-items:center;gap:8px;padding:0 12px;border-right:2px solid var(--ink);font-weight:900;text-transform:uppercase;font-stretch:condensed;font-size:13px;flex:1.3}
+  .sizerow input{flex:1;accent-color:#0b0b0a;min-width:60px} .sizerow span{min-width:40px;text-align:right;font-weight:700}
+  body.A .sizerow{padding:calc(3px*var(--u)) calc(4px*var(--u));border-right:0;border-bottom:1px solid var(--ink);font-size:calc(13px*var(--u));flex:none}
+  #vhelp{position:fixed;z-index:44;width:min(470px,46vw);max-height:calc(100vh - 40px);overflow:auto;background:var(--paper);color:var(--ink);border:3px solid var(--ink);padding:14px 16px}
+  #vhelp[hidden]{display:none}
+  #vhelp .vh-top{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid var(--ink);padding-bottom:6px;margin-bottom:6px}
+  #vhelp .vh-top b{font-size:20px;font-weight:900;text-transform:uppercase;font-stretch:condensed}
+  #vhelp .vh-top button{font-size:14px;border-bottom:2px solid var(--ink)}
+  #vhelp dl{display:grid;grid-template-columns:96px 1fr;gap:5px 10px;margin:0}
+  #vhelp dt{font-weight:900;text-transform:uppercase;font-stretch:condensed;font-size:13px;padding-top:1px}
+  #vhelp dd{margin:0;font-size:13px;line-height:1.3;font-weight:500}
+  #heardTag{position:absolute;left:50%;bottom:56px;transform:translateX(-50%);z-index:4;background:var(--paper);color:var(--ink);font:900 22px/1.1 "Helvetica Neue",Arial,sans-serif;font-stretch:condensed;text-transform:uppercase;padding:8px 14px;border:3px solid var(--ink);opacity:0;transition:opacity .4s;pointer-events:none;white-space:nowrap;max-width:90%;overflow:hidden;text-overflow:ellipsis}
+  #heardTag.on{opacity:1}
+  #heardTag i{font-style:normal;font-weight:500;text-transform:none}
+  #credit{position:fixed;left:calc(24px*var(--u,1));bottom:calc(5px*var(--u,1));font:600 calc(11px*var(--u,1))/1.2 "Helvetica Neue",Arial,sans-serif;color:var(--ink);z-index:2}
+  #credit a{color:inherit}
+  #intro{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:46;width:min(560px,92vw);max-height:92vh;overflow:auto;background:var(--paper);color:var(--ink);padding:20px 22px;border:3px solid var(--ink)}
+  #intro[hidden]{display:none}
+  #intro>b{display:block;font-size:26px;font-weight:900;text-transform:uppercase;font-stretch:condensed;border-bottom:2px solid var(--ink);padding-bottom:6px;margin-bottom:10px}
+  #intro p{display:grid;grid-template-columns:84px 1fr;gap:10px;font-size:15px;line-height:1.35;margin:0 0 9px}
+  #intro p span{font-weight:900;text-transform:uppercase;font-stretch:condensed}
+  #intro p em{font-style:normal}
+  #intro p.note{display:block;font-size:13px;font-weight:600;margin-top:12px}
+  #intro button{margin-top:6px;font-size:20px;border-bottom:3px solid var(--ink)}
+  #handmenu{position:fixed;z-index:40;display:grid;grid-template-columns:230px 190px 160px;gap:0;background:var(--ink);border:3px solid var(--paper);padding:0}
+  #handmenu[hidden]{display:none}
+  #handmenu button{height:118px;padding:12px 14px;flex-direction:column;align-items:flex-start;justify-content:center;gap:6px;color:var(--paper);border:1px solid rgba(242,240,234,.35);margin:0 -1px -1px 0}
+  #handmenu button b{font-size:24px;line-height:1;font-weight:900;font-stretch:condensed}
+  #handmenu button i{font-style:normal;font-size:13px;font-weight:500;text-transform:none;opacity:.8}
+  #handmenu button.done{box-shadow:inset 0 0 0 3px var(--paper)}
+  #handmenu button.handover{background:var(--paper)!important;color:var(--ink)!important;box-shadow:none!important}
+  #guide{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:45;width:460px;max-width:92vw;background:var(--paper);color:var(--ink);padding:20px 22px;border:3px solid var(--ink)}
+  #guide[hidden]{display:none}
+  #guide>b{display:block;font-size:22px;font-weight:900;text-transform:uppercase;font-stretch:condensed;margin-bottom:10px}
+  #guide p{font-size:15px;line-height:1.35;margin:0 0 8px;display:grid;grid-template-columns:104px 1fr;gap:8px} #guide p em{font-style:normal} #guide p span{font-weight:900;text-transform:uppercase;font-stretch:condensed}
+  #guide button{margin-top:8px;font-size:18px;border-bottom:3px solid var(--ink)}
+  #consent{position:fixed;left:50%;top:20px;transform:translateX(-50%);z-index:60;width:480px;max-width:92vw;background:var(--paper);color:var(--ink);padding:20px 22px;display:none;border:3px solid var(--ink);box-shadow:0 0 0 4px var(--paper)}
+  #consent p{font-size:15px;line-height:1.35;font-weight:500;margin-bottom:14px}
+  #consent .row{display:flex;gap:18px}
+  #consent button{font-size:18px;border-bottom:3px solid var(--ink)}
+
+  #band{position:absolute;left:0;right:0;bottom:0;height:var(--band);background:var(--magenta);color:var(--ink);display:flex;flex-direction:column}
+  #switches{height:48px;display:flex;border-bottom:6px solid var(--ink)}
+  #switches button{flex:1;padding:0 12px;font-size:15px;border-right:2px solid var(--ink);justify-content:flex-start;gap:6px;white-space:nowrap;overflow:hidden}
+  #switches button:last-child{border-right:0}
+  #switches button i{font-style:normal;font-weight:700;text-transform:none;overflow:hidden;text-overflow:ellipsis}
+  #actions{flex:1;display:flex;align-items:stretch}
+  .slogan{font-weight:900;font-stretch:condensed;text-transform:uppercase;line-height:.9;letter-spacing:-.01em}
+  #actions .say{width:250px;padding:0 22px;border-right:6px solid var(--ink);font-size:28px;display:flex;align-items:center}
+  #actions .word{flex:1.3;display:flex;flex-direction:column;justify-content:center;padding:0 22px;border-right:2px solid var(--ink);min-width:200px}
+  #band label{font-weight:900;font-size:12px;text-transform:uppercase;font-stretch:condensed}
+  #word{margin-top:6px;font:900 28px/1 "Helvetica Neue",Helvetica,Arial,sans-serif;font-stretch:condensed;text-transform:uppercase;
+        background:transparent;border:0;border-bottom:3px solid var(--ink);color:var(--ink);outline:none;width:100%;padding:2px 0}
+  #word:focus-visible{border-bottom-width:5px}
+  button{all:unset;cursor:pointer;display:flex;align-items:center;gap:10px;color:var(--ink);font-weight:900;text-transform:uppercase;font-stretch:condensed}
+  button:focus-visible{outline:3px solid var(--ink);outline-offset:-6px}
+  button[aria-pressed="true"]{background:var(--ink);color:var(--magenta)}
+  button[aria-pressed="true"] svg{fill:var(--magenta)}
+  #actions .big{flex:1;justify-content:center;font-size:22px;border-right:2px solid var(--ink);padding:0 14px}
+  #actions .small{width:96px;justify-content:center;font-size:13px;flex-direction:column;gap:6px}
+  #band button:hover:not([aria-pressed="true"]){background:#ff4b9a}
+  @media (max-width:1180px){ #actions .say{display:none} #actions .big{font-size:17px} #switches button{font-size:11px;padding:0 8px} }
+
+  /* ---- Frame A: lime spec sheet ---- */
+  body.A{--lime:#c6f000;background:var(--lime);color:var(--ink)}   /* page colour: neon lime (orange tried in v26 and v27) */
+  body.A .aonly{display:block;position:absolute}
+  body.A #stage{left:calc(24px*var(--u));top:calc(150px*var(--u));right:calc(376px*var(--u));bottom:calc(24px*var(--u))}
+  body.A #title{left:calc(24px*var(--u));top:calc(30px*var(--u))}
+  body.A #aslogan{right:calc(24px*var(--u));top:calc(30px*var(--u));width:calc(328px*var(--u));font-size:calc(30px*var(--u));padding-left:calc(4px*var(--u))}
+  body.A #r1{left:calc(24px*var(--u));right:calc(24px*var(--u));top:calc(132px*var(--u));height:calc(6px*var(--u));background:var(--ink)}
+  body.A #r2{left:calc(24px*var(--u));right:calc(24px*var(--u));top:calc(142px*var(--u));height:1px;background:var(--ink)}
+  body.A #r3{right:calc(351px*var(--u));width:1px;top:calc(150px*var(--u));bottom:calc(24px*var(--u));background:var(--ink)}
+  body.A #readout{right:calc(24px*var(--u));top:calc(156px*var(--u));width:calc(328px*var(--u));padding-left:calc(4px*var(--u));text-align:left;color:var(--ink);line-height:calc(13px*var(--u))}
+  body.A #band{left:auto;right:calc(24px*var(--u));top:calc(296px*var(--u));bottom:calc(24px*var(--u));padding-bottom:calc(4px*var(--u));width:calc(328px*var(--u));height:auto;background:transparent;border-top:1px solid var(--ink);overflow:auto}
+  body.A #switches{height:auto;flex-direction:column;border-bottom:calc(6px*var(--u)) solid var(--ink)}
+  body.A #switches button{padding:calc(4px*var(--u)) calc(4px*var(--u));border-right:0;border-bottom:1px solid var(--ink);font-size:calc(13px*var(--u))}
+  body.A #actions{flex-direction:column;flex:none}
+  body.A #actions .say{display:none}
+  body.A #actions .word{padding:calc(4px*var(--u)) calc(4px*var(--u));border-right:0;border-bottom:1px solid var(--ink);flex:none}
+  body.A #actions .big{justify-content:flex-start;padding:calc(2px*var(--u)) calc(4px*var(--u));border-right:0;border-bottom:1px solid var(--ink);font-size:calc(19px*var(--u));flex:none}
+  #actions .pair{display:flex;flex-direction:column} #actions .pair .small{flex:1}
+  body.A #actions .pair{flex-direction:row;border-bottom:calc(6px*var(--u)) solid var(--ink)} body.A #actions .pair .small{border-bottom:0!important} body.A #actions .pair #explode{border-left:1px solid var(--ink);justify-content:center}
+  body.A #actions .small{width:auto;flex-direction:row;justify-content:flex-start;padding:calc(2px*var(--u)) calc(4px*var(--u));font-size:calc(19px*var(--u));gap:calc(10px*var(--u));border-bottom:calc(6px*var(--u)) solid var(--ink)}
+  body.A{--u:1}
+  body.A #readout{font-size:calc(11px*var(--u));line-height:calc(13px*var(--u))}
+  body.A #layers .head{font-size:calc(12px*var(--u))}
+  body.A #lylist button{font-size:calc(13px*var(--u));padding:calc(5px*var(--u)) calc(4px*var(--u))}
+  body.A #lylist li{height:calc(26px*var(--u))!important} body.A #lylist{max-height:calc(78px*var(--u))!important}
+  body.A #layers .tools button{font-size:calc(12px*var(--u));padding:calc(5px*var(--u)) calc(6px*var(--u))}
+  body.A #band svg.block{width:calc(36px*var(--u));height:auto}
+  body.A #word{font-size:calc(28px*var(--u))}
+  body.A #band label{font-size:calc(12px*var(--u))}
+  body.A #status{font-size:calc(13px*var(--u))} body.A #frames{font-size:calc(12px*var(--u))}
+  body.A #title svg{display:block}
+  body.A button[aria-pressed="true"]{color:var(--lime)} body.A button[aria-pressed="true"] svg{fill:var(--lime)}
+  body.A #band button:hover:not([aria-pressed="true"]){background:#d8ff3a}
+  body.A #status{left:calc(20px*var(--u))}
+  body.A #frames{right:calc(20px*var(--u))}
+</style>
+</head>
+<body>
+<div id="title"></div>
+<div class="aonly slogan" id="aslogan">Pull here.<br>Shape<br>responsibly.</div>
+<div class="aonly rule" id="r1"></div><div class="aonly rule" id="r2"></div><div class="aonly rule" id="r3"></div>
+<div id="readout"></div>
+<div id="stage">
+  <video id="mirror" playsinline muted aria-hidden="true"></video>
+  <img id="bgimg" alt="" aria-hidden="true">
+  <div id="bgdim" aria-hidden="true"></div>
+  <canvas id="gl"></canvas>
+  <a id="bgcredit" target="_blank" rel="noopener"></a>
+  <canvas id="fx" aria-hidden="true"></canvas>
+  <div id="heardTag" aria-live="polite"></div>
+  <div id="layers" aria-label="Layers">
+    <div class="head"><span id="lyCount">Layers</span><span>Top of the stack</span></div>
+    <ul id="lylist"></ul>
+    <div class="tools"><button id="lyAdd" title="N">New layer</button><button id="lyUp" aria-label="Move layer up">Up</button><button id="lyDown" aria-label="Move layer down">Down</button><button id="lyDel">Delete</button></div>
+  </div>
+  <div class="ring" id="ringM"></div>
+  <div id="frames"><a href="#" id="introLink">How it works</a> · <a href="#" id="helpLink">Hands</a> · <a href="#" id="vhelpLink">What you can say</a></div>
+  <div id="status">Camera off: drag the word with the mouse, or start the camera and pinch it.
+Mic off: turn on Voice to change the word by saying it.</div>
+  <div id="picker" role="dialog" aria-labelledby="ptitle" hidden>
+    <div class="phead"><span id="ptitle"></span><button id="pclose">Done</button></div>
+    <div id="ptabs"></div>
+    <div id="psearch"><input id="pq" placeholder="Any Google Font, by name" autocomplete="off" spellcheck="false"><button id="pgo">Use</button></div>
+    <div id="pgrid"></div>
+  </div>
+  </div>
+</div>
+<div id="band">
+  <div id="switches">
+    <button id="swFont" title="F">Font <i></i></button>
+    <button id="swMat" title="M">Material <i></i></button>
+    <button id="swCol" title="C">Colour <i></i></button>
+    <div class="sizerow"><label for="sz">Size</label><input type="range" id="sz" min="30" max="180" step="1" value="100" aria-label="Size of the selected layer"><span id="szv">100%</span></div>
+    <button id="swTool" title="T">Tool <i></i></button>
+    <button id="swPhys" title="P">Physics <i></i></button>
+    <button id="swLook" title="L">Look <i></i></button>
+    <button id="swShatter" title="X">Shatter</button>
+    <button id="swBg" title="B">Background <i></i></button>
+    <button id="swSee" title="S">See me <i></i></button>
+    <button id="swHands" title="Y">Hands <i></i></button>
+  </div>
+  <div id="actions">
+    <div class="say slogan">Keep hands<br>inside the word</div>
+    <div class="word"><label for="word">Your word</label><input id="word" maxlength="24" value="@cntrlshiftcreate" autocomplete="off" spellcheck="false"></div>
+    <button class="big" id="cam"><span data-p="hand"></span><span id="camlabel">Start camera</span></button>
+    <button class="big" id="voice" aria-pressed="false"><span data-p="voice"></span><span id="voicelabel">Voice</span></button>
+    <button class="big" id="rec" aria-pressed="false"><span data-p="rec"></span><span id="reclabel">Record clip</span></button>
+    <button class="big" id="save"><span data-p="save"></span>Save PNG</button>
+    <button class="small" id="reset"><span data-p="reset"></span>Reset</button>
+  </div>
+</div>
+<div class="handmark" id="ring0"></div><div class="handmark" id="ring1"></div>
+<footer id="credit">A project by Jose Vargas · <a href="https://jvdesign.ai" target="_blank" rel="noopener">jvdesign.ai</a> · <a href="https://www.instagram.com/cntrlshiftcreate/" target="_blank" rel="noopener">@cntrlshiftcreate</a></footer>
+<div id="handmenu" hidden></div>
+<div id="consent" role="dialog" aria-labelledby="consentText">
+    <p id="consentText"></p>
+    <div class="row"><button id="consentYes">Use Google</button><button id="consentNo">No, type instead</button></div>
+
+<div id="vhelp" hidden role="dialog" aria-labelledby="vhelpT">
+  <div class="vh-top"><b id="vhelpT">What you can say</b><button id="vhelpClose">Hide</button></div>
+  <dl>
+    <dt>The word</dt><dd>Say anything and it becomes the word. Start with "word" to force it: "word gold".</dd>
+    <dt>Material</dt><dd>Say its name: "gold", "glass", "kraft board", "wax". Or "next material".</dd>
+    <dt>Colour</dt><dd>"blue", "red", "lime". Or "next colour".</dd>
+    <dt>Font</dt><dd>"font Anton", "font Shrikhand". Or "next font".</dd>
+    <dt>Look</dt><dd>"mirror", "kaleidoscope", "trail", "print", "plain".</dd>
+    <dt>Tool</dt><dd>"pull", "twist", "smear", "poke", "magnet", "move".</dd>
+    <dt>Moves</dt><dd>"melt", "wobble", "set", "shatter", "explode", "bigger", "smaller", "reset".</dd>
+    <dt>Layers</dt><dd>"new layer", "next layer", "previous layer", "delete layer".</dd>
+    <dt>Background</dt><dd>"background off". To add a photo, use Background → Your picture.</dd>
+    <dt>Save</dt><dd>"save" for a picture. "action" starts a clip, "cut" stops it.</dd>
+    <dt>Your voice</dt><dd>Louder makes the word bigger. A low voice squashes it, a high voice stretches it, a steady hum makes it ripple.</dd>
+  </dl>
+</div>
+<div id="intro" hidden role="dialog" aria-labelledby="introT">
+  <b id="introT">Type a word. Then pull it.</b>
+  <p><span>Type</span><em>Type a word in "Your word" on the right. Or turn on Voice and say it.</em></p>
+  <p><span>Pull</span><em>Drag the word with the mouse. Or press Start camera and pinch it with your thumb and first finger; two hands stretch it. Hold a fist to reset.</em></p>
+  <p><span>Change</span><em>Use the panels on the right: font, material, colour, size, background. With the camera on, a right fist opens big tiles next to your hand.</em></p>
+  <p><span>Speak</span><em>Turn on Voice and say a word, or a command like "gold" or "next font". See "What you can say".</em></p>
+  <p><span>Stack</span><em>New layer keeps your word and starts another on top.</em></p>
+  <p><span>Save</span><em>Save PNG or Record clip. Press E or say "explode" to blow it all away and start again.</em></p>
+  <p class="note">Your camera and mic stay on this computer.</p>
+  <button id="introClose">Start</button></div>
+<div id="guide" hidden><b>How to use your hands</b>
+  <p><span>Pinch</span><em>pinch the word with your thumb and first finger and pull. Either hand works; two hands stretch it.</em></p>
+  <p><span>Right fist</span><em>hold for half a second to open big tiles next to your hand. Point at a tile with your right hand and pinch to choose it. Fist again to close.</em></p>
+  <p><span>Left fist</span><em>hold to reset the word.</em></p>
+  <p><span>The rest</span><em>the panels on the right are for the mouse; your hands stay on the canvas.</em></p>
+  <button id="guideClose">Start</button></div>
+<input type="file" id="bgfile" accept="image/*" hidden>
+<video id="video" playsinline muted style="display:none"></video>
+
+<script type="module">
+// ===== Sculpt Type v03: layers on top of v02 (fonts, materials, tools, physics, looks, voice, clip) =====
+// Camera frames and microphone levels are processed in this page and never uploaded.
+// Speech-to-text: on-device when the browser offers it; otherwise only after the viewer agrees (see consent text).
+const MP_VERSION="1.0.1", MP_BASE=`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VERSION}`;
+const HAND_MODEL="https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+const $=id=>document.getElementById(id);
+
+// ---------- options ----------
+const FONT_GROUPS={
+ "Wide":["Dela Gothic One","Rubik Mono One","Bowlby One","Climate Crisis","Archivo Black","Black Ops One","Bungee","Unbounded:900","Syne:800","Krona One","Michroma","Righteous","Russo One","Squada One","Titan One","Passion One:900","Holtwood One SC"],
+ "Condensed":["Anton","Big Shoulders Display:900","Bebas Neue","Oswald:700","Fjalla One","Antonio:700","Six Caps","Teko:700","League Gothic","Saira Extra Condensed:900","Barlow Condensed:900","Sofia Sans Extra Condensed:900"],
+ "Pixel":["Silkscreen:700","Press Start 2P","VT323","Pixelify Sans:700","Jersey 10","Micro 5","Tiny5","DotGothic16","Workbench","Sixtyfour"],
+ "Serif":["Abril Fatface","DM Serif Display","Playfair Display:900","Bodoni Moda:900","Rozha One","Alfa Slab One","Ultra","Fraunces:900","Chonburi","Gloock","Instrument Serif"],
+ "Script":["Shrikhand","Lobster","Pacifico","Yellowtail","Kaushan Script","Leckerli One","Sedgwick Ave Display","Permanent Marker","Rock Salt"],
+ "Rounded":["Bagel Fat One","Rubik Bubbles","Chewy","Fredoka:700","Baloo 2:800","Modak","Sniglet:800","Coiny","Lilita One"],
+ "Stencil and line":["Stardos Stencil:700","Big Shoulders Stencil Display:900","Saira Stencil One","Wallpoet","Bungee Inline","Rampart One","Faster One","Codystar","Monoton"],
+ "Mono":["Space Mono:700","JetBrains Mono:800","IBM Plex Mono:700","Major Mono Display","Syne Mono"]
+};
+const FONTS=[{n:"Default",css:'"Arial Black", Arial, sans-serif',w:900,cat:"Wide"}];
+for(const [cat,list] of Object.entries(FONT_GROUPS)) list.forEach(x=>{ const [n,w]=x.split(":"); FONTS.push({n,w:+(w||400),cat}); });
+const fontCSS=f=>`https://fonts.googleapis.com/css2?family=${f.n.trim().replace(/ /g,"+")}${f.w!==400?":wght@"+f.w:""}&display=swap`;
+const fontLinks={};
+function ensureFont(f){ if(f.css) return Promise.resolve(true); if(fontLinks[f.n]) return fontLinks[f.n];
+  const l=document.createElement("link"); l.rel="stylesheet"; l.href=fontCSS(f);
+  fontLinks[f.n]=new Promise(res=>{ l.onload=()=>res(true); l.onerror=()=>{ delete fontLinks[f.n]; l.remove(); res(false); }; }); document.head.appendChild(l); return fontLinks[f.n]; }
+const MATS=["Liquid metal","Rubber","Wire and dots","Glass","Wax","Gold","Copper","Brushed steel","Holographic foil","Pearl","Balloon","Gummy","Ice","Clay","Paper cut","Debossed","Velvet","Marble","Glitter","Concrete","Mercury","Kraft board","Uncoated stock","Foil stamp","Spot UV","Blind emboss","Screen print"];
+const MAT_GROUPS={"Packaging":[21,22,23,24,25,26],"Metals":[0,5,6,7,20,8,9],"Soft":[1,10,11,4,13,16],"Clear":[3,12],"Surface":[14,15,17,19,18],"Line":[2]};
+const TAKES_COLOUR=new Set([1,2,3,4,10,11,13,14,15,16,18,22,23,24,25,26]);
+const COLS=[["Magenta","#ff2e88"],["Lime","#c6f000"],["Cyan","#00a8e8"],["Orange","#ff5a1f"],["Red","#e8202a"],["Blue","#2a4cff"],["Yellow","#ffd400"],["Green","#00b35a"],["Purple","#7a3cff"],["White","#f2f0ea"],["Black","#1c1c1b"],["Gold","#d6a843"],["Silver","#c9cdd2"]];
+const TOOLS=["Pull","Twist","Smear","Poke","Magnet","Move"];
+const PHYS=["Off","Melt","Wobble"];
+const LOOKS=["Plain","Mirror","Kaleidoscope","Trail","Halftone"];
+const SEE=["Off","Full","Corner"];
+const G_={tool:0,phys:0,look:0,see:0,hands:0};          // global settings
+const MAXL=8;
+
+// ---------- block lettering and pictograms ----------
+const G={A:["01110","11011","11111","11011","11011"],C:["01111","11000","11000","11000","01111"],E:["11111","11000","11110","11000","11111"],
+ L:["11000","11000","11000","11000","11111"],P:["11110","11011","11110","11000","11000"],S:["01111","11000","11111","00011","11110"],
+ T:["111111","001100","001100","001100","001100"],U:["11011","11011","11011","11011","11111"],Y:["11011","11011","01110","00100","00100"]," ":["000","000","000","000","000"]};
+function blockWord(txt,cell,color,wide){ const cw=cell*wide,ch=cell; let x=0,r=[];
+  for(const c of txt){ const g=G[c]||G[" "],w=g[0].length; g.forEach((row,ry)=>[...row].forEach((v,rx)=>{ if(v==="1") r.push(`<rect x="${Math.round((x+rx)*cw)}" y="${Math.round(ry*ch)}" width="${Math.ceil(cw)+1}" height="${Math.ceil(ch)+1}"/>`)})); x+=w+1; }
+  return `<svg class="block" shape-rendering="crispEdges" viewBox="0 0 ${Math.round((x-1)*cw)} ${5*ch}" width="${Math.round((x-1)*cw)}" height="${5*ch}" fill="${color}" aria-label="${txt}">${r.join("")}</svg>`; }
+const P={hand:["110000000","011000000","001100110","000101100","001111100","011111100","011111100","001111000","001111000"],
+ save:["000111000","000111000","000111000","011111110","001111100","000111000","110010011","110000011","111111111"],
+ reset:["000100000","001100000","011111110","111111111","011100011","001100011","000100011","000001111","000011110"],
+ voice:["000000100","001000010","011010001","111001001","111001001","111001001","011010001","001000010","000000100"],
+ rec:["001111100","010000010","100000001","100111001","100111001","100111001","100000001","010000010","001111100"]};
+function pict(name,cell){ let r=[]; P[name].forEach((row,y)=>[...row].forEach((v,x)=>{ if(v==="1") r.push(`<rect x="${x*cell}" y="${y*cell}" width="${cell+.3}" height="${cell+.3}"/>`)}));
+  return `<svg class="block" shape-rendering="crispEdges" viewBox="0 0 ${9*cell} ${9*cell}" width="${9*cell}" height="${9*cell}" fill="#0b0b0a" aria-hidden="true">${r.join("")}</svg>`; }
+const FRAME="a";   // one frame only: the green spec sheet
+if(FRAME==="a") document.body.classList.add("A");
+$("title").innerHTML=blockWord("SCULPT TYPE",FRAME==="a"?11:6,FRAME==="a"?"#0b0b0a":"#f2f0ea",FRAME==="a"?1.2:1.45);
+document.querySelectorAll("[data-p]").forEach(el=>el.innerHTML=pict(el.dataset.p,4));
+
+// ---------- WebGL ----------
+const stage=$("stage"), cv=$("gl");
+const gl=cv.getContext("webgl2",{premultipliedAlpha:true,preserveDrawingBuffer:true,alpha:true,antialias:false});
+if(!gl){ $("status").textContent="This browser has no WebGL2. Try a current Chrome."; throw new Error("no webgl2"); }
+gl.getExtension("EXT_color_buffer_float"); gl.getExtension("OES_texture_float_linear");
+const NX=10, NY=3, NT=NX*NY*2;
+const vsSrc=`#version 300 es
+in vec2 p; out vec2 uv; void main(){ uv=p*.5+.5; gl_Position=vec4(p,0,1); }`;
+const wordFs=`#version 300 es
+precision highp float; in vec2 uv; out vec4 o;
+uniform sampler2D sharp, height, field, cam, bgTex; uniform float bgOn; uniform vec2 bgScale, bgOff;
+uniform vec2 res, offset; uniform float aspect, camOn, mat, look, size, stretchY, ripple, t, shatterOn;
+uniform vec3 tint; uniform vec2 gv[${(NX+1)*(NY+1)}]; uniform vec3 shard[${NT}];
+float H(vec2 q){ return texture(height,q).r; }
+vec3 envFrame(vec3 r){
+  float y=r.y;
+  vec3 c = y>0. ? mix(vec3(.78,.78,.80),vec3(.16,.16,.18),smoothstep(0.,.8,y)) : mix(vec3(.46,.46,.48),vec3(.20,.20,.21),smoothstep(0.,-.45,y));
+  c += vec3(1.)*exp(-pow((y-.40)/.035,2.))*.75;
+  c += vec3(1.,.45,.70)*exp(-pow((y+.22)/.03,2.))*.10;
+  return c;
+}
+float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+float vnoise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f); return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y); }
+float fbm(vec2 p){ float s=0., a=.5; for(int i=0;i<4;i++){ s+=a*vnoise(p); p*=2.03; a*=.5; } return s; }
+vec3 rainbow(float t){ return .5+.5*cos(6.2832*(t+vec3(0.,.33,.67))); }
+float spec(vec3 n, vec3 L, float k){ return pow(max(dot(reflect(-L,n),vec3(0,0,1)),0.),k); }
+vec3 bgAt(vec2 q, float lod){ return textureLod(bgTex, clamp(q*bgScale+bgOff,0.,1.), lod).rgb; }
+vec3 metalEnv(vec3 r, vec3 n, vec2 vq){ vec3 col=envFrame(r);
+  if(bgOn>.5){ vec3 v=bgAt(vec2(1.-vq.x,vq.y)+n.xy*vec2(.38,.38),2.5); col=mix(col,v*1.15,.68)+vec3(1.)*exp(-pow((r.y-.40)/.03,2.))*.3; return col; }
+  if(camOn>.5){ vec3 v=textureLod(cam,clamp(vq+n.xy*vec2(-.38,.38),0.,1.),2.).rgb; float l=dot(v,vec3(.299,.587,.114));
+    v=clamp((mix(vec3(l),v,.55)-.5)*1.35+.55,0.,1.); col=mix(col,v,.62)+vec3(1.)*exp(-pow((r.y-.40)/.03,2.))*.35; }
+  return col; }
+float cross2(vec2 a, vec2 b){ return a.x*b.y-a.y*b.x; }
+bool inTri(vec2 p, vec2 a, vec2 b, vec2 c){ float d1=cross2(b-a,p-a), d2=cross2(c-b,p-b), d3=cross2(a-c,p-c);
+  return !((d1<0.||d2<0.||d3<0.) && (d1>0.||d2>0.||d3>0.)); }
+vec2 shatter(vec2 q){
+  vec2 lo=gv[0], hi=gv[${(NX+1)*(NY+1)-1}];
+  bool inBox = q.x>lo.x && q.x<hi.x && q.y>lo.y && q.y<hi.y;
+  vec2 res = inBox ? vec2(-1.) : q;
+  for(int k=0;k<${NT};k++){
+    int cell=k/2, cx=cell-(cell/${NX})*${NX}, cy=cell/${NX}, h=k-cell*2;
+    vec2 v00=gv[cy*${NX+1}+cx], v10=gv[cy*${NX+1}+cx+1], v01=gv[(cy+1)*${NX+1}+cx], v11=gv[(cy+1)*${NX+1}+cx+1];
+    vec2 a,b,c; if(((cx+cy)&1)==0){ if(h==0){a=v00;b=v10;c=v11;} else {a=v00;b=v11;c=v01;} } else { if(h==0){a=v00;b=v10;c=v01;} else {a=v10;b=v11;c=v01;} }
+    vec2 ce=(a+b+c)/3.; vec3 s=shard[k];
+    vec2 d=(q-s.xy-ce)*vec2(aspect,1.); float cs=cos(-s.z), sn=sin(-s.z);
+    vec2 src=vec2(d.x*cs-d.y*sn, d.x*sn+d.y*cs)/vec2(aspect,1.)+ce;
+    if(inTri(src,a,b,c)) res=src;
+  }
+  return res;
+}
+void main(){
+  vec2 u0 = uv - offset;
+  vec2 p = u0 - texture(field,u0).rg;
+  vec2 c = vec2(.5);
+  if(look>.5 && look<1.5) p.x = .5 - abs(p.x-.5);
+  if(look>1.5 && look<2.5){ vec2 d=(p-c)*vec2(aspect,1.); float r=length(d), a=atan(d.y,d.x), seg=6.2832/5.;
+    a=mod(a+.31,seg); a=abs(a-seg*.5)+.07; p=c+vec2(cos(a),sin(a))*r/vec2(aspect,1.); }
+  p = c + (p-c)/vec2(size, size*stretchY);
+  p.y += ripple*.012*sin(p.x*18.-t*1.6);
+  if(shatterOn>.5) p = shatter(p);
+  if(p.x<0.||p.x>1.||p.y<0.||p.y>1.){ o=vec4(0); return; }
+  float sh = texture(sharp,p).r;
+  float a = smoothstep(.2,.8,sh);
+  int m = int(mat+.5);
+  float sa = 0.;
+  if(m==14) sa = smoothstep(.2,.8,texture(sharp,p+vec2(.006,.011)).r);
+  if(m==21||m==25) sa = smoothstep(.2,.8,texture(sharp,p+vec2(.003,.006)).r);
+  float board = (m==24||m==25) ? smoothstep(.0,.004,min(min(p.x-.06,.94-p.x),min(p.y-.27,.73-p.y))) : 0.;
+  if(a<.002 && m!=2 && m!=26 && sa<.002 && board<.002){ o=vec4(0); return; }
+  vec2 px=1./res; float dx=0., dy=0.;
+  for(int k=1;k<=3;k++){ float s=float(k)*2.5;
+    dx += H(p+vec2(px.x*s,0))-H(p-vec2(px.x*s,0)); dy += H(p+vec2(0,px.y*s))-H(p-vec2(0,px.y*s)); }
+  vec3 n = normalize(vec3(-dx*5.,-dy*5.,1.));
+  vec3 r = normalize(vec3(n.x*1.4, n.y*1.4 + (uv.y-.5)*.9 + .08, 1.));
+  float fr = pow(1.-n.z,1.6), h=H(p);
+  vec3 L = normalize(vec3(-.45,.6,.65));
+  float d = dot(n,L);
+  vec2 vq = vec2(1.-uv.x, uv.y);
+  vec2 q = p*vec2(aspect,1.);
+  vec3 col; float alpha=a;
+  if(m==0){                                   // liquid metal
+    col = metalEnv(r,n,vq);
+    vec3 film=rainbow(fr*1.3+.1); col = mix(col, col*.75+film*.3, clamp(fr*.5,0.,.2)); col *= .88+.12*h;
+  } else if(m==1){                            // rubber
+    col = d>.62 ? tint : tint*.66; col = mix(col, vec3(1.), step(.55,spec(n,L,24.))*.9);
+    col = mix(vec3(.04), col, smoothstep(.10,.22,h));
+  } else if(m==2){                            // wire and dots
+    float edge = 1.-smoothstep(.0,.045,abs(sh-.5));
+    float dd=length(fract(q*70.)-.5); float dots=(1.-smoothstep(.16,.24,dd))*step(.62,sh);
+    alpha = clamp(max(edge, dots),0.,1.); col = tint;
+  } else if(m==3){                            // glass
+    vec3 bg = bgOn>.5 ? bgAt(vec2(1.-vq.x,vq.y)+n.xy*vec2(.14,.14),1.)*.95 : camOn>.5 ? textureLod(cam,clamp(vq+n.xy*vec2(-.14,.14),0.,1.),1.).rgb*.9 : vec3(.16,.17,.18)+envFrame(vec3(n.x,n.y,1.))*.12;
+    float s=spec(n,L,60.);
+    col = mix(mix(bg,bg*tint*2.2+tint*.10,.38), envFrame(r)*1.15, 1.-smoothstep(.35,.9,h)) + s*.9;
+    alpha = a*clamp(.24+(1.-smoothstep(.35,.9,h))*.9+s,0.,1.);
+  } else if(m==4){                            // wax
+    col = tint*(.30+.40*(d+.55)/1.55) + mix(tint,vec3(1.,.95,.85),.35)*smoothstep(.35,1.,h)*.55;
+  } else if(m==5){                            // gold
+    col = metalEnv(r,n,vq)*vec3(1.,.77,.36)*1.08 + spec(n,L,80.)*vec3(1.,.9,.6)*.4;
+  } else if(m==6){                            // copper
+    col = metalEnv(r,n,vq)*vec3(.98,.56,.40)*1.08 + spec(n,L,80.)*vec3(1.,.8,.7)*.35;
+  } else if(m==7){                            // brushed steel
+    float st = vnoise(vec2(q.x*3., p.y*900.));
+    vec3 r2 = normalize(r + vec3(0.,(st-.5)*.16,0.));
+    float st2 = vnoise(vec2(q.x*1.5, p.y*2600.));
+    col = metalEnv(normalize(r2+vec3(0.,(st2-.5)*.1,0.)),n,vq)*vec3(.80,.83,.86); col = mix(col, vec3(dot(col,vec3(.333))), .45)*(.85+.3*(st-.5)) + (st2-.5)*.08;
+  } else if(m==8){                            // holographic foil
+    float hue = fr*1.4 + (q.x+p.y)*.9 + n.x*.6;
+    col = mix(metalEnv(r,n,vq)*.55, rainbow(hue), .55) + spec(n,L,50.)*.6;
+  } else if(m==9){                            // pearl
+    col = vec3(.93,.91,.88)*(.55+.45*max(d,0.)) + rainbow(fr*1.6+q.x*.3)*.45*fr + spec(n,L,30.)*.35;
+  } else if(m==10){                           // balloon
+    vec3 L2 = normalize(vec3(.5,.3,.8));
+    col = tint*(.62+.45*max(d,0.)) + spec(n,L,22.)*1.1 + spec(n,L2,10.)*.3;
+    col = mix(col, tint*.55, smoothstep(.6,1.,fr)*.4);
+  } else if(m==11){                           // gummy
+    col = mix(tint*1.2+.08, tint*.5, smoothstep(.1,.8,fr)) + spec(n,L,70.)*.9;
+    alpha = a*clamp(.55+.45*fr+spec(n,L,70.),0.,1.);
+  } else if(m==12){                           // ice
+    float frost = fbm(q*40.); float crack = 1.-smoothstep(0.,.025,abs(vnoise(q*9.)-.5));
+    col = mix(vec3(.78,.90,.97), vec3(.30,.50,.66), fr*.9) + frost*.12 + crack*.25 + spec(n,L,70.)*.8;
+    if(bgOn>.5) col = mix(col, bgAt(vec2(1.-vq.x,vq.y)+n.xy*vec2(.1,.1),2.), .3); else if(camOn>.5) col = mix(col, textureLod(cam,clamp(vq+n.xy*vec2(-.1,.1),0.,1.),2.).rgb, .25);
+    alpha = a*(.6+.4*fr);
+  } else if(m==13){                           // clay
+    vec2 nb = vec2(vnoise(q*30.), vnoise(q*30.+5.))-.5; vec3 n2=normalize(n+vec3(nb*.25,0.));
+    col = tint*(.32+.68*max(dot(n2,L),0.));
+  } else if(m==14){                           // paper cut, with a cast shadow
+    col = tint*(.93+.07*vnoise(q*400.)); vec3 back = mix(tint,vec3(.95,.93,.88),.6)*.9;
+    o = vec4(col*a + back*sa*(1.-a), a + sa*(1.-a)); return;
+  } else if(m==15){                           // debossed
+    float dd2 = dot(normalize(vec3(-n.xy,n.z)),L);
+    col = tint*(.45+.55*dd2)*mix(.6,1.,smoothstep(.05,.3,h));
+  } else if(m==16){                           // velvet
+    col = tint*(.07+.12*max(d,0.)) + tint*smoothstep(.0,.6,fr)*1.5 + vec3(.04)*vnoise(q*500.);
+  } else if(m==17){                           // marble
+    float v = sin(q.x*14. + p.y*6. + fbm(q*5.)*7.); float vein = 1.-smoothstep(0.,.12,abs(v));
+    col = mix(vec3(.94,.93,.91), vec3(.28,.29,.31), vein*.8)*(.7+.3*max(d,0.)) + spec(n,L,50.)*.35;
+  } else if(m==18){                           // glitter: fixed flakes that catch the light as the surface turns
+    vec2 g = q*260.; vec2 id = floor(g); float rnd = hash(id);
+    float tilt = dot(n.xy + vec2(hash(id+7.3)-.5, hash(id+3.1)-.5)*.8, normalize(vec2(-.45,.6)));
+    float flake = step(.9,rnd)*smoothstep(.15,.35,tilt)*(1.-smoothstep(.25,.5,length(fract(g)-.5)));
+    col = tint*(.35+.5*max(d,0.)) + vec3(1.)*flake*.9;
+  } else if(m==19){                           // concrete
+    float g = fbm(q*90.); float pits = step(.86, vnoise(q*260.));
+    col = vec3(.56,.55,.53)*(.8+.35*(g-.5))*(.65+.35*max(d,0.)) - pits*.18;
+  } else if(m==20){                           // mercury: darker, heavier, liquid
+    col = metalEnv(r,n,vq)*vec3(.80,.85,.92); col = clamp((col-.55)*1.7+.42,0.,1.); col *= .75+.25*h;
+  } else if(m==21){                           // kraft board: brown board, fibres, a cut edge below
+    float fib = vnoise(vec2(q.x*900.,q.y*220.))*.5 + vnoise(q*1400.)*.5; float speck = step(.93,hash(floor(q*700.)));
+    col = vec3(.62,.46,.30)*(.82+.25*fib)*(.86+.14*max(d,0.)) - speck*.12;
+    vec3 edge = vec3(.42,.30,.19);
+    o = vec4(col*a + edge*sa*(1.-a), a + sa*(1.-a)); return;
+  } else if(m==22){                           // uncoated stock: matte, toothy, takes a dye colour
+    vec3 stock = mix(vec3(.93,.91,.86), tint, .35); float tooth = vnoise(q*1100.)*.6+vnoise(q*300.)*.4;
+    col = stock*(.80+.12*tooth)*(.82+.18*max(d,0.));
+  } else if(m==23){                           // foil stamp: crisp metal, faint crinkle, pressed in
+    vec3 foil = tint*.85+.15; float crin = vnoise(q*160.)-.5;
+    float along = dot(p - texture(field,u0).rg*0. , vec2(.55,.83)) + crin*.004 + n.x*.04;
+    float glint = exp(-pow((fract(along*1.6+.15)-.5)/.035,2.));
+    col = foil*(.50+.08*crin) + mix(foil,vec3(1.),.4)*glint*.9;
+    col *= mix(.7,1.,smoothstep(.04,.2,h));
+  } else if(m==24){                           // spot UV: gloss on dark board, only the shine shows
+    vec3 bd = tint*.30+.02; float s=spec(n,L,90.);
+    vec3 gloss = bd*.9 + envFrame(r)*.30*smoothstep(.0,.6,fr+.15) + s*.9;
+    vec3 matte = bd*(.95+.06*vnoise(q*700.));
+    col = mix(matte, gloss, a); alpha = max(a, board);
+  } else if(m==25){                           // blind emboss: raised paper, same colour as the sheet
+    vec3 paper = mix(vec3(.92,.90,.85), tint, .25);
+    vec3 L30 = normalize(vec3(-.5,.5,.71)); float dd3 = dot(n,L30);
+    vec3 raised = paper*(.70+.34*clamp(dd3*1.2,0.,1.));
+    vec3 sheet = paper*(.86+.04*vnoise(q*900.));
+    float sh2 = sa*(1.-a)*.22;
+    col = mix(sheet*(1.-sh2), raised, a); alpha = max(a, board);
+  } else {                                    // screen print: flat ink, rough edge, gaps in the ink
+    float rough = vnoise(q*180.)*.5+vnoise(q*520.)*.5;
+    alpha = smoothstep(.42,.58, sh + (rough-.5)*.22);
+    float gaps = step(.78, vnoise(q*260.+3.))*.55 + step(.92,hash(floor(q*600.)))*.6;
+    alpha *= 1.-clamp(gaps,0.,.85);
+    col = tint*(.96+.06*(rough-.5));
+  }
+  o = vec4(col*alpha, alpha);
+}`;
+const fadeFs=`#version 300 es
+precision highp float; in vec2 uv; out vec4 o; uniform sampler2D src; uniform float k;
+void main(){ o = max(texture(src, uv)*k - vec4(3./255.), vec4(0.)); }   // the extra step makes 8-bit trails reach black instead of sticking as a ghost`;
+const outFs=`#version 300 es
+precision highp float; in vec2 uv; out vec4 o;
+uniform sampler2D src; uniform float halftone; uniform vec2 res;
+void main(){
+  vec4 c = texture(src, uv);
+  if(halftone<.5){ o=c; return; }
+  float lum = c.a>0. ? dot(c.rgb/c.a, vec3(.299,.587,.114)) : 0.;
+  float k = c.a*(1.-.55*lum);
+  vec2 g = uv*res; float ang=.26; vec2 rg=mat2(cos(ang),-sin(ang),sin(ang),cos(ang))*g/9.;
+  float d = length(fract(rg)-.5), rad=.5*sqrt(k)*1.08, aa=.08;
+  float ink = 1.-smoothstep(rad-aa, rad+aa, d);
+  o = vec4(mix(vec3(.902,.894,.871), vec3(.043,.043,.039), ink), 1.);
+}`;
+function sh(t,s){const x=gl.createShader(t);gl.shaderSource(x,s);gl.compileShader(x);if(!gl.getShaderParameter(x,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(x));return x;}
+function prog(fs){ const p=gl.createProgram(); gl.attachShader(p,sh(gl.VERTEX_SHADER,vsSrc)); gl.attachShader(p,sh(gl.FRAGMENT_SHADER,fs)); gl.bindAttribLocation(p,0,"p"); gl.linkProgram(p);
+  if(!gl.getProgramParameter(p,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)); return p; }
+const PW=prog(wordFs), PF=prog(fadeFs), PO=prog(outFs);
+const buf=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,buf); gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
+const UW=n=>gl.getUniformLocation(PW,n), UO=n=>gl.getUniformLocation(PO,n), UF=n=>gl.getUniformLocation(PF,n);
+function newTex(filter){ const t=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,t);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,filter); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE); return t; }
+gl.activeTexture(gl.TEXTURE3); const texCam=newTex(gl.LINEAR_MIPMAP_LINEAR);
+gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([0,0,0,255]));
+gl.useProgram(PW); ["sharp","height","field","cam"].forEach((n,i)=>gl.uniform1i(UW(n),i)); gl.uniform1i(UW("bgTex"),7);
+gl.useProgram(PF); gl.uniform1i(UF("src"),4);
+gl.useProgram(PO); gl.uniform1i(UO("src"),5);
+let fbo=[], ftex=[], cur=0;
+function makeTargets(){
+  fbo.forEach(f=>gl.deleteFramebuffer(f)); ftex.forEach(t=>gl.deleteTexture(t)); fbo=[]; ftex=[];
+  for(let i=0;i<2;i++){ gl.activeTexture(gl.TEXTURE6); const t=newTex(gl.LINEAR); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA8,W,H,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
+    const f=gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER,f); gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,t,0);
+    gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT); fbo.push(f); ftex.push(t); }
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+}
+
+// ---------- shard grid (shared shape, per-layer state) ----------
+const gv=new Float32Array((NX+1)*(NY+1)*2);
+(function(){ const x0=.06,x1=.94,y0=.28,y1=.72;
+  for(let j=0;j<=NY;j++) for(let i=0;i<=NX;i++){ let u=x0+(x1-x0)*i/NX, v=y0+(y1-y0)*j/NY;
+    if(i>0&&i<NX&&j>0&&j<NY){ const h1=Math.sin(i*91.7+j*47.3)*43758.5, h2=Math.sin(i*12.3+j*78.1)*24634.6;
+      u+=(h1-Math.floor(h1)-.5)*.7*(x1-x0)/NX; v+=(h2-Math.floor(h2)-.5)*.7*(y1-y0)/NY; }
+    gv[(j*(NX+1)+i)*2]=u; gv[(j*(NX+1)+i)*2+1]=v; } })();
+function makeShards(){ return Array.from({length:NT},(_,k)=>{ const cell=k>>1, cx=cell%NX, cy=(cell/NX)|0;
+  const g=(i,j)=>[gv[(j*(NX+1)+i)*2],gv[(j*(NX+1)+i)*2+1]];
+  const a=g(cx,cy), d=g(cx+1,cy+1); return {ox:0,oy:0,r:0,vx:0,vy:0,vr:0,cx:(a[0]+d[0])/2,cy:(a[1]+d[1])/2,home:false}; }); }
+
+// ---------- layers ----------
+let W=0,H=0,dirty=true;
+const GW=192; let GH=108;
+const SIGMA=0.08, CAP=0.45;
+const drip=new Float32Array(GW).map((_,i)=>.35+.65*Math.abs(Math.sin(i*12.9898+Math.sin(i*.37)*4.)));
+let layers=[], act=0, nextId=1;
+function makeLayer(src){
+  gl.activeTexture(gl.TEXTURE6);
+  const L={id:nextId++, word:src?src.word:"@cntrlshiftcreate", font:src?src.font:0, mat:src?src.mat:0, col:src?src.col:0, size:1, ox:0, oy:0, visible:true,
+    field:new Float32Array(GW*GH*2), vel:new Float32Array(GW*GH*2), fieldMax:0, fieldDirty:true, resetting:false,
+    shards:makeShards(), shatterOn:false, texSharp:newTex(gl.LINEAR), texHeight:newTex(gl.LINEAR), texField:newTex(gl.LINEAR), built:false};
+  return L;
+}
+const A=()=>layers[act];
+function freeLayer(L){ [L.texSharp,L.texHeight,L.texField].forEach(t=>gl.deleteTexture(t)); }
+
+// ---------- the word (per layer) ----------
+const input=$("word");
+function boxBlur(src,dst,w,h,r){ const iw=1/(2*r+1);
+  for(let y=0;y<h;y++){ let o=y*w,acc=0; for(let x=-r;x<=r;x++) acc+=src[o+Math.min(w-1,Math.max(0,x))];
+    for(let x=0;x<w;x++){ dst[o+x]=acc*iw; acc+=src[o+Math.min(w-1,x+r+1)]-src[o+Math.max(0,x-r)]; } }
+  const col=new Float32Array(h);
+  for(let x=0;x<w;x++){ let acc=0; for(let y=-r;y<=r;y++) acc+=dst[Math.min(h-1,Math.max(0,y))*w+x];
+    for(let y=0;y<h;y++){ col[y]=acc*iw; acc+=dst[Math.min(h-1,y+r+1)*w+x]-dst[Math.max(0,y-r)*w+x]; }
+    for(let y=0;y<h;y++) dst[y*w+x]=col[y]; } }
+async function buildWord(L){
+  L=L||A(); const token=(L.token=(L.token||0)+1), f=FONTS[L.font], fam=f.css||`"${f.n}"`;
+  if(!f.css){ await ensureFont(f); try{ await document.fonts.load(`${f.w} 120px "${f.n}"`, "AZ"); }catch(e){} }
+  if(token!==L.token||!layers.includes(L)) return;
+  const word=(L.word.trim()||" ").toUpperCase();
+  const c=document.createElement("canvas"); c.width=W; c.height=H; const x=c.getContext("2d");
+  x.fillStyle="#000"; x.fillRect(0,0,W,H);
+  let fs=400; x.font=`${f.w} ${fs}px ${fam}`;
+  const m=x.measureText(word), tw=Math.max(1,m.width), th=Math.max(1,(m.actualBoundingBoxAscent||fs*.7)+(m.actualBoundingBoxDescent||0));
+  fs=Math.min(fs*(W*0.78)/tw, fs*(H*0.40)/th);
+  x.font=`${f.w} ${fs}px ${fam}`; x.textAlign="center"; x.textBaseline="alphabetic";
+  const m2=x.measureText(word), asc=m2.actualBoundingBoxAscent||fs*.7, desc=m2.actualBoundingBoxDescent||0;
+  x.fillStyle="#fff"; x.fillText(word,W/2,H/2+(asc-desc)/2);
+  gl.activeTexture(gl.TEXTURE6); gl.bindTexture(gl.TEXTURE_2D,L.texSharp); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,c);
+  const hw=W>>1, hh=H>>1, small=document.createElement("canvas"); small.width=hw; small.height=hh;
+  const sx=small.getContext("2d"); sx.drawImage(c,0,0,hw,hh);
+  const d=sx.getImageData(0,0,hw,hh).data, a=new Float32Array(hw*hh); for(let i=0;i<a.length;i++) a[i]=d[i*4]/255;
+  let ink=0; for(let i=0;i<a.length;i++) ink+=a[i]; const s=Math.max(1,Math.round(Math.sqrt(ink/a.length)*hh/28));
+  const blur3=(src,r)=>{ const p=new Float32Array(src.length), q=new Float32Array(src.length); boxBlur(src,p,hw,hh,r); boxBlur(p,q,hw,hh,r); boxBlur(q,p,hw,hh,r); return p; };
+  const b1=blur3(a,Math.max(1,s)), b2=blur3(a,Math.max(2,s*2)), out=new Float32Array(a.length);
+  for(let y=0;y<hh;y++) for(let xx=0;xx<hw;xx++){ const i=y*hw+xx, j=(hh-1-y)*hw+xx; out[j]=b1[i]*.55+b2[i]*.45; }
+  gl.bindTexture(gl.TEXTURE_2D,L.texHeight); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.R16F,hw,hh,0,gl.RED,gl.FLOAT,out);
+  L.built=true; dirty=true; renderLayers(); readout();
+}
+
+// ---------- displacement field + tools (act on the active layer) ----------
+function sampleField(src,u,v){ const x=Math.min(GW-1.001,Math.max(0,u*GW-.5)), y=Math.min(GH-1.001,Math.max(0,v*GH-.5));
+  const x0=x|0,y0=y|0,tx=x-x0,ty=y-y0,i00=(y0*GW+x0)*2,i10=i00+2,i01=i00+GW*2,i11=i01+2;
+  return [(src[i00]*(1-tx)+src[i10]*tx)*(1-ty)+(src[i01]*(1-tx)+src[i11]*tx)*ty,(src[i00+1]*(1-tx)+src[i10+1]*tx)*(1-ty)+(src[i01+1]*(1-tx)+src[i11+1]*tx)*ty]; }
+function advect(L,cx,cy,sigma,dfn){
+  const asp=W/H, s2=2*sigma*sigma, field=L.field, old=field.slice();
+  const x0=Math.max(0,Math.floor((cx-3.2*sigma/asp)*GW)), x1=Math.min(GW-1,Math.ceil((cx+3.2*sigma/asp)*GW));
+  const y0=Math.max(0,Math.floor((cy-3.2*sigma)*GH)), y1=Math.min(GH-1,Math.ceil((cy+3.2*sigma)*GH));
+  for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++){
+    const u=(x+.5)/GW, v=(y+.5)/GH, ex=(u-cx)*asp, ey=v-cy, w=Math.exp(-(ex*ex+ey*ey)/s2), i=(y*GW+x)*2;
+    const [ddx,ddy]=dfn(u,v,w); const [ox,oy]=sampleField(old,u-ddx,v-ddy);
+    let fx=ox+ddx, fy=oy+ddy; const m=Math.hypot(fx,fy); if(m>CAP){fx*=CAP/m;fy*=CAP/m;} field[i]=fx; field[i+1]=fy; }
+  L.fieldDirty=true; L.resetting=false;
+}
+function applyTool(px,py,dx,dy){   // screen uv, y up
+  const L=A(); if(!L) return; const tool=TOOLS[G_.tool];
+  if(tool==="Move"){ L.ox+=dx; L.oy+=dy; dirty=true; return; }
+  px-=L.ox; py-=L.oy;              // into the layer's own space
+  const asp=W/H, len=Math.hypot(dx*asp,dy), steps=Math.max(1,Math.ceil(len/(SIGMA*.25)));
+  for(let k=0;k<steps;k++){ const sx=dx/steps, sy=dy/steps, cx=px+sx*k, cy=py+sy*k;
+    if(tool==="Pull") advect(L,cx,cy,SIGMA,(u,v,w)=>[sx*w,sy*w]);
+    else if(tool==="Smear") advect(L,cx,cy,SIGMA*2.2,(u,v,w)=>[sx*w*.6,sy*w*.6]);
+    else if(tool==="Twist"){ const ang=(sx*asp-sy)*7; advect(L,px,py,SIGMA*1.3,(u,v,w)=>{ const ex=(u-px)*asp, ey=v-py, a=ang*w, c=Math.cos(a), s=Math.sin(a); return [((ex*c-ey*s)-ex)/asp,(ex*s+ey*c)-ey]; }); }
+    else if(tool==="Poke"){ const amt=Math.hypot(sx*asp,sy)*.9; advect(L,px,py,SIGMA*.8,(u,v,w)=>{ const ex=(u-px)*asp, ey=v-py, r=Math.hypot(ex,ey)+1e-4; return [ex/r*amt*w/asp, ey/r*amt*w]; }); }
+  }
+  if(tool==="Magnet") magnetAt(px+dx+L.ox,py+dy+L.oy);
+}
+function magnetAt(sx,sy){ const L=A(); if(!L) return; const px=sx-L.ox, py=sy-L.oy, asp=W/H;
+  advect(L,px,py,SIGMA*1.6,(u,v,w)=>{ const ex=(u-px)*asp, ey=v-py; return [-ex*.035*w/asp, -ey*.035*w]; }); }
+function startReset(){ const L=A(); if(!L) return; L.resetting=true; L.shards.forEach(s=>{s.home=true;}); }
+function uploadField(L){ gl.activeTexture(gl.TEXTURE6); gl.bindTexture(gl.TEXTURE_2D,L.texField); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RG16F,GW,GH,0,gl.RG,gl.FLOAT,L.field);
+  let m=0; for(let i=0;i<L.field.length;i+=2) m=Math.max(m,Math.hypot(L.field[i],L.field[i+1])); L.fieldMax=m; L.fieldDirty=false; dirty=true; }
+function physicsStep(L,grabbing){
+  const ph=PHYS[G_.phys], field=L.field, vel=L.vel;
+  if(ph==="Melt" && !grabbing){ for(let y=0;y<GH;y++) for(let x=0;x<GW;x++){ const i=(y*GW+x)*2+1; field[i]=Math.max(-CAP,field[i]-.00045*drip[x]); } L.fieldDirty=true; }
+  if(ph==="Wobble" && !grabbing){ let e=0; const k=.0246, c=.085;
+    for(let i=0;i<field.length;i++){ vel[i]=vel[i]*(1-c)-k*field[i]; field[i]+=vel[i]; e+=Math.abs(field[i])+Math.abs(vel[i]); }
+    if(e>1e-3) L.fieldDirty=true; }
+  if(ph!=="Wobble") vel.fill(0);
+  if(L.resetting){ let any=false; for(let i=0;i<field.length;i++){ field[i]*=0.86; if(Math.abs(field[i])>1e-4) any=true; else field[i]=0; } vel.fill(0);
+    L.size+=(1-L.size)*.2; L.fieldDirty=true; if(!any&&Math.abs(L.size-1)<.002){ L.resetting=false; L.size=1; } }
+}
+function doShatter(){ const L=A(); if(!L) return; L.shatterOn=true; L.shards.forEach(s=>{ const dx=s.cx-.5, dy=s.cy-.5, d=Math.hypot(dx,dy)+.05, sp=.006+.006*Math.random();
+  s.vx=dx/d*sp+(Math.random()-.5)*.004; s.vy=dy/d*sp+(Math.random()-.5)*.004; s.vr=(Math.random()-.5)*.05; s.home=false; }); dirty=true; readout(); }
+function shardStep(L,sweepAt){
+  if(!L.shatterOn) return; let left=0;
+  L.shards.forEach(s=>{ s.ox+=s.vx; s.oy+=s.vy; s.r+=s.vr; s.vx*=.95; s.vy*=.95; s.vr*=.95;
+    if(sweepAt){ const d=Math.hypot((s.cx+s.ox+L.ox-sweepAt[0])*W/H, s.cy+s.oy+L.oy-sweepAt[1]); if(d<.16) s.home=true; }
+    if(s.home){ s.ox*=.86; s.oy*=.86; s.r*=.86; s.vx=s.vy=s.vr=0; }
+    if(Math.abs(s.ox)+Math.abs(s.oy)+Math.abs(s.r)>.0015) left++; });
+  if(left===0 && L.shards.every(s=>s.home)){ L.shatterOn=false; L.shards.forEach(s=>{s.ox=s.oy=s.r=0;s.home=false;}); readout(); }
+  dirty=true;
+}
+
+// ---------- layer actions ----------
+function addLayer(){
+  if(layers.length>=MAXL){ setStatus(`Up to ${MAXL} layers. Delete one to add another.`); return; }
+  const src=A(), L=makeLayer(src); L.word=src?src.word:"@cntrlshiftcreate";
+  L.ox=0; L.oy=0;                                         // every new layer starts in the centre of the canvas
+  uploadField(L); layers.splice(act+1,0,L); act=act+1; syncLayer(); buildWord(L);
+  setStatus(`Kept layer ${act}. Now on layer ${act+1}. Type a new word or sculpt this copy.`);
+}
+function deleteLayer(){
+  if(layers.length<=1){ setStatus("This is the only layer. Reset clears it."); return; }
+  const L=layers.splice(act,1)[0]; freeLayer(L); act=Math.min(act,layers.length-1); syncLayer(); dirty=true;
+}
+function moveLayer(d){ const j=act+d; if(j<0||j>=layers.length) return; [layers[act],layers[j]]=[layers[j],layers[act]]; act=j; syncLayer(); dirty=true; }
+function selectLayer(i){ if(i<0||i>=layers.length) return; act=i; syncLayer(); }
+function toggleVisible(i){ layers[i].visible=!layers[i].visible; drawLayerList(); dirty=true; }
+$("lyAdd").onclick=addLayer; $("lyDel").onclick=deleteLayer; $("lyUp").onclick=()=>moveLayer(1); $("lyDown").onclick=()=>moveLayer(-1);
+// Frame A layout scales with the window: one unit (--u) drives margins, column width, type and icons.
+let U=1;
+function placeBand(){ if(!document.body.classList.contains("A")) return;
+  const rb=$("readout").getBoundingClientRect(); $("layers").style.top=Math.round(rb.bottom+8*U)+"px";
+  const lb=$("layers").getBoundingClientRect(); $("band").style.top=Math.round(lb.bottom+8*U)+"px"; }
+function fitTitle(){ const svg=$("title").querySelector("svg"); if(!svg) return;
+  const nat=+svg.getAttribute("width"), avail=innerWidth-(328+24*3+8)*U; svg.style.width=Math.max(120,Math.min(nat*U,avail))+"px"; svg.style.height="auto"; }
+function layoutA(){ if(!document.body.classList.contains("A")) return;
+  U=Math.max(.62,Math.min(2,Math.min(innerWidth/1440,innerHeight/900)));
+  for(let i=0;i<12;i++){ document.body.style.setProperty("--u",U); fitTitle(); placeBand();
+    const b=$("band"); if(b.scrollHeight<=b.clientHeight+1||U<=.62) break; U*=.95; }
+}
+function drawLayerList(){
+  const ul=$("lylist"); ul.innerHTML="";
+  for(let i=layers.length-1;i>=0;i--){ const L=layers[i], li=document.createElement("li");
+    li.className=(i===act?"on":"")+(L.visible?"":" hidden");
+    const name=(L.word.trim()||"(empty)").replace(/[<>&]/g,"").slice(0,20);
+    li.innerHTML=`<button class="ly-sel" ${i===act?'aria-current="true"':""}><b>${i+1}</b> ${name}<i>${MATS[L.mat]}${TAKES_COLOUR.has(L.mat)?", "+COLS[L.col][0].toLowerCase():""}</i></button>${(i===act||!L.visible)?`<button class="ly-eye" aria-label="${L.visible?"Hide":"Show"} layer ${i+1}">${L.visible?"Hide":"Show"}</button>`:""}`;
+    li.querySelector(".ly-sel").onclick=()=>selectLayer(i); const eye=li.querySelector(".ly-eye"); if(eye) eye.onclick=()=>toggleVisible(i);
+    ul.appendChild(li); }
+  $("lyCount").textContent="Layers"; requestAnimationFrame(placeBand);
+}
+function syncLayer(){ const L=A(); input.value=L.word; syncSwitches(); drawLayerList(); }
+
+// ---------- sizing ----------
+function resize(){
+  const dpr=Math.min(2,window.devicePixelRatio||1), r=stage.getBoundingClientRect();
+  W=Math.max(2,Math.round(r.width*dpr)); H=Math.max(2,Math.round(r.height*dpr)); cv.width=W; cv.height=H;
+  const nGH=Math.max(24,Math.round(GW*H/W));
+  if(nGH!==GH){ GH=nGH; layers.forEach(L=>{ L.field=new Float32Array(GW*GH*2); L.vel=new Float32Array(GW*GH*2); }); }
+  makeTargets(); layers.forEach(L=>{ uploadField(L); buildWord(L); });
+}
+window.addEventListener("resize",()=>{ layoutA(); resize(); });
+let wordTimer; input.addEventListener("input",()=>{ const L=A(); L.word=input.value; drawLayerList(); clearTimeout(wordTimer); wordTimer=setTimeout(()=>buildWord(L),120); });
+
+// ---------- switches ----------
+function label(id,v){ $(id).querySelector("i").textContent=v; }
+function syncSwitches(){ const L=A(); if(document.activeElement!==input) input.value=L.word; label("swFont",FONTS[L.font].n); label("swMat",MATS[L.mat]); label("swCol",TAKES_COLOUR.has(L.mat)?COLS[L.col][0]:"n/a for "+MATS[L.mat].toLowerCase()); label("swTool",TOOLS[G_.tool]);
+  label("swPhys",PHYS[G_.phys]); label("swLook",LOOKS[G_.look]); label("swSee",SEE[G_.see]); label("swBg",BG.img?"Your picture":"None"); label("swHands",HANDMODES[G_.hands]); applySee();
+  const print=LOOKS[G_.look]==="Halftone"; stage.classList.toggle("print",print); document.body.classList.toggle("print",print); dirty=true; drawLayerList(); readout(); if(PK&&PK.kind) drawPicker(); }
+const cyc=(obj,key,list,step=1)=>{ obj[key]=(obj[key]+step+list.length)%list.length; };
+$("swFont").onclick=()=>togglePicker("font");
+$("swMat").onclick=()=>togglePicker("mat");
+$("swCol").onclick=()=>togglePicker("col");
+$("swTool").onclick=()=>{ cyc(G_,"tool",TOOLS); syncSwitches(); };
+$("swPhys").onclick=()=>{ cyc(G_,"phys",PHYS); syncSwitches(); };
+$("swLook").onclick=()=>{ cyc(G_,"look",LOOKS); syncSwitches(); };
+$("swShatter").onclick=()=>doShatter();
+$("swHands").onclick=()=>{ cyc(G_,"hands",HANDMODES); hands.forEach(h=>{setHover(h,null);h.clicking=h.sculpting=false;}); syncSwitches(); };
+$("swSee").onclick=()=>{ cyc(G_,"see",SEE); syncSwitches(); seeStatus(); };
+const mirrorEl=$("mirror");
+function applySee(){ const on=G_.see>0&&camState==="on"; mirrorEl.className=on?(G_.see===1?"full":"corner"):""; }
+function seeStatus(){ if(G_.see===0) return; if(camState!=="on") setStatus("Start the camera to see yourself."); else setStatus("You are on screen. Saved PNGs and clips now include your camera image. It stays on this computer."); }
+$("reset").onclick=startReset;
+// ---------- backgrounds: none, your own picture (stays on this computer), or Unsplash ----------
+// Unsplash search was removed on request (it needs an API key); the helpers below stay unused for now.
+const UNSPLASH_KEY="";
+const BG={img:null,kind:"none",credit:null,dim:.35,results:[],query:"",chosen:null,tex:null,w:1,h:1};
+function unsplashKey(){ try{ return UNSPLASH_KEY||localStorage.getItem("sculptType.unsplashKey")||""; }catch(_){ return UNSPLASH_KEY; } }
+function drawCover(ctx,img,x,y,w,h){ const iw=img.naturalWidth||img.width, ih=img.naturalHeight||img.height, s=Math.max(w/iw,h/ih), sw=w/s, sh=h/s; ctx.drawImage(img,(iw-sw)/2,(ih-sh)/2,sw,sh,x,y,w,h); }
+function bgUniforms(){ const on=!!BG.img&&LOOKS[G_.look]!=="Halftone"; gl.uniform1f(UW("bgOn"),on?1:0);
+  if(on){ gl.activeTexture(gl.TEXTURE7); gl.bindTexture(gl.TEXTURE_2D,BG.tex);
+    const sa=W/H, ia=BG.w/BG.h; let sx=1,sy=1; if(ia>sa) sx=sa/ia; else sy=ia/sa;           // cover-fit in texture space
+    gl.uniform2f(UW("bgScale"),sx,sy); gl.uniform2f(UW("bgOff"),(1-sx)/2,(1-sy)/2); } }
+function setBackground(img,kind,credit){
+  BG.img=img; BG.kind=kind; BG.credit=credit||null;
+  const el=$("bgimg"), dim=$("bgdim"), cr=$("bgcredit");
+  stage.classList.toggle("hasbg",!!img);
+  if(img){ el.src=img.src; el.style.display="block"; dim.style.display="block"; dim.style.opacity=BG.dim;
+    gl.activeTexture(gl.TEXTURE7); if(!BG.tex){ BG.tex=gl.createTexture(); } gl.bindTexture(gl.TEXTURE_2D,BG.tex);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+    const c=document.createElement("canvas"), k=Math.min(1,1600/Math.max(img.naturalWidth,img.naturalHeight)); c.width=Math.round(img.naturalWidth*k); c.height=Math.round(img.naturalHeight*k);
+    c.getContext("2d").drawImage(img,0,0,c.width,c.height); BG.w=c.width; BG.h=c.height;
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,c); gl.generateMipmap(gl.TEXTURE_2D);
+  } else { el.removeAttribute("src"); el.style.display="none"; dim.style.display="none"; }
+  if(credit){ cr.textContent=`Photo: ${credit.name} on Unsplash`; cr.href=credit.link; cr.style.display="block"; } else cr.style.display="none";
+  dirty=true; syncSwitches();
+}
+function loadImage(src,cross){ return new Promise((res,rej)=>{ const im=new Image(); if(cross) im.crossOrigin="anonymous"; im.onload=()=>res(im); im.onerror=rej; im.src=src; }); }
+$("bgfile").addEventListener("change",async e=>{ const f=e.target.files[0]; if(!f) return;
+  try{ const im=await loadImage(URL.createObjectURL(f),false); setBackground(im,"upload",null); setStatus("Your picture is the background. It stays on this computer."); if(PK.kind==="bg") drawBgPicker(); }
+  catch(_){ setStatus("That file couldn't be opened as a picture."); } e.target.value=""; });
+async function searchUnsplash(q){
+  const key=unsplashKey(); if(!key){ setStatus("Unsplash needs a key first."); return; }
+  BG.query=q; setStatus(`Searching Unsplash for "${q}".`);
+  try{ const r=await fetch(`https://api.unsplash.com/search/photos?query=${encodeURIComponent(q)}&per_page=12&orientation=landscape&content_filter=high`,{headers:{"Authorization":"Client-ID "+key,"Accept-Version":"v1"}});
+    if(r.status===401){ setStatus("Unsplash didn't accept that key. Check it in your Unsplash developer account."); return; }
+    if(r.status===403||r.status===429){ setStatus("Unsplash's hourly limit is used up for this key. Try again later, or upload your own picture."); return; }
+    const j=await r.json(); BG.results=(j.results||[]).map(p=>({id:p.id,thumb:p.urls.small,full:p.urls.raw+"&w=2400&q=80&fm=jpg",name:p.user.name,
+      link:p.user.links.html+"?utm_source=sculpt_type&utm_medium=referral",dl:p.links.download_location,alt:p.alt_description||""}));
+    setStatus(BG.results.length?`${BG.results.length} photos for "${q}". Pick one.`:`No photos for "${q}".`); if(PK.kind==="bg") drawBgPicker();
+  }catch(_){ setStatus("Couldn't reach Unsplash. Check the internet connection."); } }
+async function chooseUnsplash(p){
+  setStatus("Loading the photo.");
+  try{ const im=await loadImage(p.full,true); setBackground(im,"unsplash",{name:p.name,link:p.link}); BG.chosen=p.id;
+    const key=unsplashKey(); if(p.dl&&key) fetch(p.dl,{headers:{"Authorization":"Client-ID "+key}}).catch(()=>{});   // Unsplash asks apps to report each photo used
+    setStatus(`Background: photo by ${p.name} on Unsplash.`); if(PK.kind==="bg") drawBgPicker();
+  }catch(_){ setStatus("That photo didn't load. Try another."); } }
+function drawBgPicker(){
+  const grid=$("pgrid"), tabs=$("ptabs"); tabs.innerHTML=""; grid.innerHTML=""; picker.className="bgs";
+  $("ptitle").textContent = BG.img?"Background: your picture":"Background: none";
+  const wrap=document.createElement("div"); wrap.style.gridColumn="1 / -1";
+  const row=(items)=>{ const d=document.createElement("div"); d.className="bgrow"; items.forEach(([t,fn,on])=>{ const b=document.createElement("button"); b.textContent=t; if(on) b.setAttribute("aria-current","true"); b.onclick=fn; d.appendChild(b); }); return d; };
+  wrap.appendChild(row([["None",()=>{ setBackground(null,"none",null); drawBgPicker(); },!BG.img],["Your picture",()=>$("bgfile").click(),BG.kind==="upload"]]));
+  const dims=document.createElement("div"); dims.className="bgnote"; dims.textContent="Darken the photo so the word stands out:"; wrap.appendChild(dims);
+  wrap.appendChild(row([["None",()=>{BG.dim=0;applyDim();},BG.dim===0],["A little",()=>{BG.dim=.35;applyDim();},BG.dim===.35],["A lot",()=>{BG.dim=.6;applyDim();},BG.dim===.6]]));
+  const n=document.createElement("div"); n.className="bgnote"; n.textContent="Your picture stays on this computer."; wrap.appendChild(n);
+  grid.appendChild(wrap);
+}
+function applyDim(){ $("bgdim").style.opacity=BG.dim; dirty=true; drawBgPicker(); }
+$("swBg").onclick=()=>togglePicker("bg");
+// ---------- picker (fonts, materials, colours): big targets for the mouse or the menu hand ----------
+const PK={kind:null,tab:null,page:0}; const PER=12; const picker=$("picker");
+function pickShift(){ const sr=stage.getBoundingClientRect(), pr=picker.getBoundingClientRect(); return Math.max(0,(sr.right-pr.left+12)/sr.width); }
+function togglePicker(kind){ if(PK.kind===kind){ closePicker(); return; } PK.kind=kind;
+  const L=A(); PK.page=0; PK.tab = kind==="font"?FONTS[L.font].cat : kind==="mat"?Object.keys(MAT_GROUPS).find(g=>MAT_GROUPS[g].includes(L.mat)) : null;
+  picker.hidden=false; drawPicker(); dirty=true; }
+function closePicker(){ PK.kind=null; picker.hidden=true; dirty=true; hands.forEach(h=>{ if(h.hover&&picker.contains(h.hover)) setHover(h,null); }); }
+$("pclose").onclick=closePicker;
+const previewLinks={};
+function previewFonts(list){ const need=list.filter(f=>!f.css&&!fontLinks[f.n]&&!previewLinks[f.n]); if(!need.length) return;
+  const letters=[...new Set(need.map(f=>f.n).join(""))].join("");
+  const l=document.createElement("link"); l.rel="stylesheet";
+  l.href="https://fonts.googleapis.com/css2?"+need.map(f=>"family="+f.n.replace(/ /g,"+")+(f.w!==400?":wght@"+f.w:"")).join("&")+"&text="+encodeURIComponent(letters)+"&display=swap";
+  document.head.appendChild(l); need.forEach(f=>previewLinks[f.n]=true); }
+function drawPicker(){
+  const L=A(), tabs=$("ptabs"), grid=$("pgrid"); tabs.innerHTML=""; grid.innerHTML="";
+  if(PK.kind==="bg"){ drawBgPicker(); return; }
+  picker.className = PK.kind==="font"?"fonts":PK.kind==="mat"?"mats":"cols";
+  $("ptitle").textContent = PK.kind==="font"?`Font: ${FONTS[L.font].n}`:PK.kind==="mat"?`Material: ${MATS[L.mat]}`:`Colour: ${COLS[L.col][0]}`;
+  const tabNames = PK.kind==="font"?[...new Set(FONTS.map(f=>f.cat))]:PK.kind==="mat"?Object.keys(MAT_GROUPS):[];
+  tabNames.forEach(t=>{ const b=document.createElement("button"); b.textContent=t; if(t===PK.tab) b.setAttribute("aria-current","true"); b.onclick=()=>{ PK.tab=t; PK.page=0; drawPicker(); }; tabs.appendChild(b); });
+  if(PK.kind==="font"){ const all=FONTS.map((f,i)=>[f,i]).filter(([f])=>f.cat===PK.tab), pages=Math.ceil(all.length/PER);
+    if(PK.page>=pages) PK.page=0; const list=all.slice(PK.page*PER,(PK.page+1)*PER); previewFonts(list.map(x=>x[0]));
+    if(pages>1) setTimeout(()=>{ const nb=document.createElement("button"); nb.textContent=`More (${PK.page+1} of ${pages})`; nb.className="more"; nb.onclick=()=>{ PK.page=(PK.page+1)%pages; drawPicker(); }; grid.appendChild(nb); });
+    list.forEach(([f,i])=>{ const b=document.createElement("button"); b.textContent=f.n; b.style.fontFamily=f.css||`"${f.n}", "Helvetica Neue", sans-serif`; b.style.fontWeight=f.w;
+      if(i===L.font) b.setAttribute("aria-current","true"); b.onclick=()=>{ A().font=i; buildWord(); syncSwitches(); drawPicker(); }; grid.appendChild(b); }); }
+  else if(PK.kind==="mat"){ (MAT_GROUPS[PK.tab]||[]).forEach(i=>{ const b=document.createElement("button"); b.textContent=MATS[i];
+      if(i===L.mat) b.setAttribute("aria-current","true"); b.onclick=()=>{ A().mat=i; syncSwitches(); drawPicker(); }; grid.appendChild(b); }); }
+  else { COLS.forEach(([n,hex],i)=>{ const b=document.createElement("button"); b.innerHTML=`<span class="sw" style="background:${hex}"></span>${n}`;
+      if(i===L.col) b.setAttribute("aria-current","true"); b.onclick=()=>{ A().col=i; if(!TAKES_COLOUR.has(A().mat)) A().mat=1; syncSwitches(); drawPicker(); }; grid.appendChild(b); }); }
+}
+async function useSearchedFont(){
+  const name=$("pq").value.trim().replace(/\s+/g," "); if(!name) return;
+  let i=FONTS.findIndex(f=>f.n.toLowerCase()===name.toLowerCase());
+  if(i<0){ const f={n:name.split(" ").map(w=>w[0].toUpperCase()+w.slice(1)).join(" "),w:400,cat:"Yours"}; setStatus(`Looking for "${f.n}" on Google Fonts.`);
+    const ok=await ensureFont(f); if(!ok){ setStatus(`Couldn't find a Google Font called "${f.n}". Check the spelling.`); return; }
+    FONTS.push(f); i=FONTS.length-1; }
+  A().font=i; PK.tab=FONTS[i].cat; $("pq").value=""; await buildWord(); syncSwitches(); drawPicker(); setStatus(`Font: ${FONTS[i].n}.`);
+}
+$("pgo").onclick=useSearchedFont; $("pq").addEventListener("keydown",e=>{ if(e.key==="Enter") useSearchedFont(); e.stopPropagation(); });
+window.addEventListener("keydown",e=>{ if(e.key==="Escape"&&PK.kind){ closePicker(); return; } if(e.target===input||e.metaKey||e.ctrlKey) return; const k=e.key.toLowerCase(), s=e.shiftKey?-1:1;
+  if(k==="r") startReset(); else if(k==="f"){cyc(A(),"font",FONTS,s);syncSwitches();buildWord();} else if(k==="m"){cyc(A(),"mat",MATS,s);syncSwitches();}
+  else if(k==="c"){cyc(A(),"col",COLS,s);syncSwitches();} else if(k==="t"){cyc(G_,"tool",TOOLS,s);syncSwitches();} else if(k==="p"){cyc(G_,"phys",PHYS,s);syncSwitches();}
+  else if(k==="l"){cyc(G_,"look",LOOKS,s);syncSwitches();} else if(k==="x") doShatter();
+  else if(k==="s"){cyc(G_,"see",SEE,s);syncSwitches();seeStatus();}
+  else if(k==="y"){cyc(G_,"hands",HANDMODES,s);syncSwitches();}
+  else if(k==="+"||k==="=") nudgeSize(1.08); else if(k==="-"||k==="_") nudgeSize(1/1.08);
+  else if(k==="b") togglePicker("bg");
+  else if(k==="e") explode();
+  else if(k==="n") addLayer(); else if(k==="]") selectLayer(act+1); else if(k==="[") selectLayer(act-1); else if(k==="h") toggleVisible(act); });
+
+// ---------- mouse fallback: drag = pinch ----------
+const ringM=$("ringM"); let mouse=null;
+const toUV=(cx,cy)=>{ const r=stage.getBoundingClientRect(); return [(cx-r.left)/r.width, 1-(cy-r.top)/r.height]; };
+stage.addEventListener("pointerdown",e=>{ if(e.button!==0||e.target.closest("#consent,#layers,#frames,#picker")) return; stage.setPointerCapture(e.pointerId); mouse={x:e.clientX,y:e.clientY}; stage.classList.add("grabbing"); showRing(ringM,e.clientX,e.clientY,true); });
+stage.addEventListener("pointermove",e=>{ if(!mouse) return; const r=stage.getBoundingClientRect(), [u,v]=toUV(mouse.x,mouse.y);
+  applyTool(u,v,(e.clientX-mouse.x)/r.width,-(e.clientY-mouse.y)/r.height); mouse={x:e.clientX,y:e.clientY}; showRing(ringM,e.clientX,e.clientY,true); });
+const endMouse=()=>{ mouse=null; stage.classList.remove("grabbing"); ringM.style.display="none"; };
+stage.addEventListener("pointerup",endMouse); stage.addEventListener("pointercancel",endMouse);
+function showRing(el,cx,cy,grab){ const r=stage.getBoundingClientRect(); el.style.display="block"; el.style.left=(cx-r.left)+"px"; el.style.top=(cy-r.top)+"px"; el.classList.toggle("grab",grab); }
+
+// ---------- hands ----------
+const video=$("video"), statusEl=$("status"), camBtn=$("cam");
+let landmarker=null, camState="off", stream=null, lastVideoTime=-1;
+const hands=[0,1].map(i=>({el:$("ring"+i),seen:false,lost:99,x:0,y:0,u:0,v:0,grab:false,fistT:0,clicking:false,sculpting:false,hover:null}));
+function setStatus(t){ statusEl.textContent=t; }
+camBtn.onclick=async()=>{
+  if(camState==="on"){ stopCam(); return; }
+  try{
+    camState="asking"; readout(); setStatus("Asking for the camera. Your video stays on this page.");
+    stream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:1280},height:{ideal:720},facingMode:"user"},audio:false});
+    video.srcObject=stream; await video.play();
+    if(!landmarker){ camState="loading"; readout(); setStatus("Loading the hand tracker (about 20 MB, once).");
+      const {FilesetResolver,HandLandmarker}=await import(`${MP_BASE}/vision_bundle.mjs`);
+      const files=await FilesetResolver.forVisionTasks(`${MP_BASE}/wasm`);
+      landmarker=await HandLandmarker.createFromOptions(files,{baseOptions:{modelAssetPath:HAND_MODEL,delegate:"GPU"},runningMode:"VIDEO",numHands:2}); }
+    camState="on"; $("camlabel").textContent="Stop camera"; mirrorEl.srcObject=stream; mirrorEl.play().catch(()=>{}); applySee();
+    setStatus(guideText()); if(!seenGuide){ seenGuide=true; showGuide(); }
+  }catch(err){
+    camState= err&&err.name==="NotAllowedError"?"blocked":(err&&err.name==="NotFoundError"?"none":"error");
+    setStatus(camState==="blocked"?"Camera blocked. Allow it in the address bar, or drag with the mouse.":camState==="none"?"No camera found. Drag the word with the mouse.":"Camera or tracker failed to start. Drag with the mouse. ("+(err&&err.message||err)+")");
+    if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  }
+  readout();
+};
+function stopCam(){ if(stream) stream.getTracks().forEach(t=>t.stop()); stream=null; video.srcObject=null; mirrorEl.srcObject=null; camState="off"; applySee();
+  $("camlabel").textContent="Start camera"; hands.forEach(h=>{h.el.style.display="none";h.seen=false;h.grab=false;h.clicking=h.sculpting=false;setHover(h,null);});
+  setStatus(idleText()); dirty=true; readout(); }
+const D=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+// Hand roles. Tested on a real webcam (2026-10-20): with the raw (unmirrored) camera, MediaPipe's "Left" is the person's left hand.
+// The Hands switch can still swap roles.
+const HANDMODES=["Right hand menus","Left hand menus","Both sculpt"];
+const menuSlot=()=>G_.hands===0?1:G_.hands===1?0:-1;      // slot 0 = person's left, 1 = person's right
+const CLICKABLE='#guide button, #handmenu button, #consent button';   // the only things a hand can press; the side column is mouse only
+function pickTarget(x,y){
+  const under=document.elementFromPoint(x,y); const hit=under&&under.closest(CLICKABLE); if(hit) return hit;
+  let best=null, bd=30;
+  document.querySelectorAll(CLICKABLE).forEach(el=>{ const r=el.getBoundingClientRect(); if(!r.width||!r.height) return;
+    const dx=Math.max(r.left-x,0,x-r.right), dy=Math.max(r.top-y,0,y-r.bottom), d=Math.hypot(dx,dy); if(d<bd){bd=d;best=el;} });
+  return best;
+}
+function overStage(x,y){ const r=stage.getBoundingClientRect(); return x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom&&!document.elementFromPoint(x,y)?.closest(CLICKABLE); }
+function toStageUV(x,y){ const r=stage.getBoundingClientRect(); return [(x-r.left)/r.width, 1-(y-r.top)/r.height]; }
+function trackHands(){
+  if(camState!=="on"||!landmarker||video.readyState<2) return;
+  if(video.currentTime===lastVideoTime) return; lastVideoTime=video.currentTime;
+  const res=landmarker.detectForVideo(video,performance.now()), found=[null,null];
+  (res.landmarks||[]).forEach((lm,i)=>{ const lab=res.handedness?.[i]?.[0]?.categoryName;
+    let slot=lab==="Left"?0:lab==="Right"?1:(1-lm[0].x>.5?1:0); if(found[slot]) slot=1-slot; found[slot]=lm; });
+  processHands(found);
+  gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D,texCam); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,video); gl.generateMipmap(gl.TEXTURE_2D); dirty=true;
+}
+// ---------- welcome card: shown on the first visit, reopened from "How it works" ----------
+function showIntro(){ $("intro").hidden=false; }
+$("introClose").onclick=()=>{ $("intro").hidden=true; try{ localStorage.setItem("sculptType.introSeen","1"); }catch(_){} };
+$("introLink").onclick=e=>{ e.preventDefault(); showIntro(); };
+try{ if(localStorage.getItem("sculptType.introSeen")!=="1") showIntro(); }catch(_){ showIntro(); }
+let seenGuide=false;
+$("guideClose").onclick=()=>{ $("guide").hidden=true; };
+$("helpLink").onclick=e=>{ e.preventDefault(); showGuide(); };
+function voiceHint(){ return V.on?"":"\nMic off: turn on Voice to change the word by saying it."; }
+function idleText(){ return "Camera off: drag the word with the mouse, or start the camera and pinch it."+voiceHint(); }
+function guideText(){ return guideTextHands()+voiceHint(); }
+function guideTextHands(){ if(G_.hands===2) return "Pinch the word with either hand and pull. Hold a fist to reset.";
+  const P=G_.hands===0?"Right":"Left", S2=G_.hands===0?"Left":"Right";
+  return `${S2} hand: pinch the word and pull. ${P} hand: point at a button and pinch to choose. ${P} fist: big menu.`; }
+function showGuide(){ $("guide").hidden=false; }
+function processHands(found){
+  // hands are mapped onto the canvas and can't leave it, so they never reach the menus on the right
+  const SRr=stage.getBoundingClientRect(), VW=SRr.width, VH=SRr.height, OX=SRr.left, OY=SRr.top, ms=menuSlot(), now=performance.now();
+  found.forEach((lm,i)=>{ const h=hands[i], isMenu=i===ms;
+    if(!lm){ h.lost++; if(h.lost>6){ h.seen=false; h.grab=false; h.clicking=false; h.sculpting=false; h.el.style.display="none"; setHover(h,null); } return; }
+    h.lost=0; const size=D(lm[0],lm[9])||1e-3, pinchD=D(lm[4],lm[8])/size;
+    const tipsIn=[[8,6],[12,10],[16,14],[20,18]].every(([t,p])=>D(lm[t],lm[0])<D(lm[p],lm[0]));
+    // both hands follow the pinch point (between thumb and first finger), so a pinch grabs right where the fingers are
+    const ax=(lm[4].x+lm[8].x)/2, ay=(lm[4].y+lm[8].y)/2;
+    // the middle of the camera picture covers the whole window, so the edges are easy to reach
+    const nx=Math.min(1,Math.max(0,(1-ax-.14)/.72)), ny=Math.min(1,Math.max(0,(ay-.12)/.70));
+    let px=nx, py=ny;
+    if(h.seen){ const dpx=Math.hypot((nx-h.x)*VW,(ny-h.y)*VH);
+      const k = isMenu ? (dpx<2?0:Math.min(.7,.40+dpx/600)) : .45;      // same feel as the sculpting hand, a hair steadier when still
+      const closing = h.lastPinch!=null && pinchD<h.lastPinch-.01;
+      const freeze = isMenu && !h.sculpting && (h.clicking || (!h.grab && pinchD<0.30 && closing && h.hover)); // lock only to land a click on a button, never while sculpting
+      px = freeze?h.x:h.x+(nx-h.x)*k; py = freeze?h.y:h.y+(ny-h.y)*k; }
+    const wasGrab=h.grab;
+    if(tipsIn&&pinchD>0.45){ h.grab=false; if(h.fistT>=0) h.fistT+=1/30;
+      if(h.fistT>0.45){ h.fistT=-1; if(isMenu){ if(now-(h.menuAt||0)>900){ h.menuAt=now; toggleHandMenu(OX+px*VW,OY+py*VH); } } else startReset(); } }
+    else if(h.fistT>0) h.fistT=0;
+    if(!tipsIn) h.fistT=0;
+    if(!tipsIn){ if(!h.grab&&pinchD<0.25) h.grab=true; else if(h.grab&&pinchD>0.38) h.grab=false; }
+    const cx=OX+px*VW, cy=OY+py*VH, ox=OX+h.x*VW, oy=OY+h.y*VH;
+    if(isMenu){
+      const target=(h.grab||(pinchD<0.30&&h.lastPinch!=null&&pinchD<h.lastPinch-.01))?h.hover:pickTarget(cx,cy); setHover(h,h.sculpting?null:target);
+      if(h.grab&&!wasGrab){ if(target){ h.clicking=true; target.click(); target.classList.add("handpress"); setTimeout(()=>target.classList.remove("handpress"),220); }
+        else if(overStage(cx,cy)&&!HM.open) h.sculpting=true; }
+    } else if(h.grab&&!wasGrab) h.sculpting=true;
+    if(!h.grab){ h.clicking=false; h.sculpting=false; }
+    const [u,v]=toStageUV(cx,cy);
+    if(h.seen&&wasGrab&&h.sculpting){ const [u0,v0]=toStageUV(ox,oy); applyTool(u0,v0,u-u0,v-v0); }
+    h.x=px; h.y=py; h.u=u; h.v=v; h.seen=true; h.lastPinch=pinchD;
+    const onUI=isMenu&&!h.sculpting&&(h.hover||!overStage(cx,cy));
+    h.el.className="handmark"+(onUI?" menu":"")+(h.grab?" grab":""); h.el.dataset.side=i?"R":"L"; h.el.style.display="block"; h.el.style.left=cx+"px"; h.el.style.top=cy+"px"; });
+}
+// ---------- big hand menu: fist with the pointing hand opens nine large tiles around it ----------
+const HM={open:false}; const hm=$("handmenu");
+const HM_ITEMS=[
+ ["Next font",()=>{ cyc(A(),"font",FONTS); buildWord(); syncSwitches(); },()=>FONTS[A().font].n],
+ ["Next material",()=>{ cyc(A(),"mat",MATS); syncSwitches(); },()=>MATS[A().mat]],
+ ["Next colour",()=>{ cyc(A(),"col",COLS); if(!TAKES_COLOUR.has(A().mat)) A().mat=1; syncSwitches(); },()=>COLS[A().col][0]],
+ ["Next tool",()=>{ cyc(G_,"tool",TOOLS); syncSwitches(); },()=>TOOLS[G_.tool]],
+ ["Done",()=>closeHandMenu(),()=>"close this menu"],
+ ["New layer",()=>addLayer(),()=>`layer ${act+1} of ${layers.length}`],
+ ["Save PNG",()=>savePNG(),()=>"saves a picture"],
+ ["Record clip",()=>mr?stopRec():startRec(),()=>mr?"recording, choose to stop":"up to 30 s"],
+ ["Reset word",()=>startReset(),()=>"undo the sculpt"]];
+function drawHandMenu(){ hm.innerHTML=""; HM_ITEMS.forEach(([name,fn,val])=>{ const b=document.createElement("button"); b.className=name==="Done"?"done":"";
+  b.innerHTML=`<b>${name}</b><i>${String(val()).replace(/[<>&]/g,"")}</i>`; b.onclick=()=>{ fn(); if(HM.open) drawHandMenu(); }; hm.appendChild(b); }); }
+function toggleHandMenu(x,y){ HM.open?closeHandMenu():openHandMenu(x,y); }
+function openHandMenu(x,y){ HM.open=true; drawHandMenu(); hm.hidden=false;
+  const w=hm.offsetWidth, h=hm.offsetHeight; hm.style.left=Math.min(innerWidth-w-8,Math.max(8,x-w/2))+"px"; hm.style.top=Math.min(innerHeight-h-8,Math.max(8,y-h/2))+"px";
+  setStatus("Big menu open. Move onto a tile and pinch. Make a fist or choose Done to close."); }
+function closeHandMenu(){ HM.open=false; hm.hidden=true; hands.forEach(h=>{ if(h.hover&&hm.contains(h.hover)) setHover(h,null); }); setStatus(guideText()); }
+function setHover(h,el){ if(h.hover===el) return; if(h.hover) h.hover.classList.remove("handover"); h.hover=el; if(el) el.classList.add("handover"); }
+
+// ---------- voice ----------
+const V={on:false,ctx:null,an:null,buf:null,floor:-60,calib:[],level:0,inflate:0,stretch:1,pitch:0,hum:0,pitchHist:[],speech:"off",heard:"",rec:null};
+$("voice").onclick=async()=>{ if(V.on){ stopVoice(); return; }
+  try{
+    const ms=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:false},video:false});
+    V.ctx=new AudioContext(); const src=V.ctx.createMediaStreamSource(ms); V.an=V.ctx.createAnalyser(); V.an.fftSize=2048; src.connect(V.an);
+    V.buf=new Float32Array(V.an.fftSize); V.ms=ms; V.on=true; V.calib=[]; $("voice").setAttribute("aria-pressed","true"); $("voicelabel").textContent="Voice on"; if(!vhelpDismissed) showVhelp();
+    setStatus("Voice on. Loudness inflates, a low voice squashes, a high voice stretches, a steady hum ripples. Measuring the room for a second.");
+    startSpeech();
+  }catch(err){ setStatus("Microphone blocked or missing. Hands and mouse still work."); }
+  readout(); };
+function stopVoice(){ V.on=false; if(V.ms) V.ms.getTracks().forEach(t=>t.stop()); if(V.ctx) V.ctx.close(); { const r=V.rec; V.rec=null; if(r){ try{r.onend=null;r.abort();}catch(e){} } }
+  V.speech="off"; setTimeout(()=>setStatus(camState==="on"?guideText():idleText()),0); V.inflate=0; V.stretch=1; V.hum=0; $("voice").setAttribute("aria-pressed","false"); $("voicelabel").textContent="Voice"; dirty=true; readout(); }
+function autoPitch(b,sr){ let rms=0; for(const x of b) rms+=x*x; rms=Math.sqrt(rms/b.length); if(rms<.01) return [0,0];
+  const n=b.length, minL=Math.floor(sr/600), maxL=Math.floor(sr/70); let best=0,bestL=0;
+  for(let L=minL;L<=maxL;L++){ let s=0,a=0,c=0; for(let i=0;i<n-L;i+=2){ s+=b[i]*b[i+L]; a+=b[i]*b[i]; c+=b[i+L]*b[i+L]; } const r=s/Math.sqrt(a*c+1e-9); if(r>best){best=r;bestL=L;} }
+  return best>.85?[sr/bestL,best]:[0,best]; }
+let voiceTick=0;
+function voiceStep(){
+  if(!V.on) return; if(!V.an){ speechWatch(); return; }
+  V.an.getFloatTimeDomainData(V.buf); let rms=0; for(const x of V.buf) rms+=x*x; rms=Math.sqrt(rms/V.buf.length);
+  const db=20*Math.log10(rms+1e-6);
+  if(V.calib.length<45){ V.calib.push(db); if(V.calib.length===45){ V.calib.sort((a,b)=>a-b); V.floor=V.calib[22]+6; setStatus("Voice on. Say a new word, or a command from the card (\"gold\", \"next font\", \"new layer\")."); } return; }
+  const lv=Math.max(0,Math.min(1,(db-V.floor)/30)); V.level=lv;
+  V.inflate += (lv-V.inflate)*(lv>V.inflate?.3:.05);
+  if((voiceTick++&1)===0){ const [hz]=lv>.08?autoPitch(V.buf,V.ctx.sampleRate):[0];
+    if(hz){ V.pitch=hz; V.pitchHist.push(hz); if(V.pitchHist.length>16) V.pitchHist.shift();
+      const semis=12*Math.log2(hz/150), target=1+Math.max(-.45,Math.min(.6,semis/12))*.4; V.stretch+=(target-V.stretch)*.15;
+      const mean=V.pitchHist.reduce((a,b)=>a+b,0)/V.pitchHist.length, dev=Math.sqrt(V.pitchHist.reduce((a,b)=>a+(b-mean)**2,0)/V.pitchHist.length);
+      const steady=V.pitchHist.length>=12 && dev/mean<.03; V.hum+=((steady?1:0)-V.hum)*.06;
+    } else { V.stretch+=(1-V.stretch)*.06; V.hum*=.94; V.pitchHist.length=0; } }
+  dirty=true;
+  if(V.speech==="on this computer"&&!V.gotWords&&V.speechAt&&performance.now()-V.speechAt>4000){
+    V.speechAt=0; const SR=window.SpeechRecognition||window.webkitSpeechRecognition; const r=V.rec; V.rec=null; try{r&&r.abort();}catch(_){}
+    V.localBroken=true; try{ localStorage.setItem("sculptType.localSpeechBroken","1"); }catch(_){}
+    askCloud(SR,"Your voice is reaching the page, but on-device speech isn't turning it into words."); }
+}
+function speechWatch(){ if(V.on&&V.speech==="on this computer"&&!V.gotWords&&V.speechAt&&performance.now()-V.speechAt>4000){ V.speechAt=0; const SR=window.SpeechRecognition||window.webkitSpeechRecognition; const r=V.rec; V.rec=null; try{r&&r.abort();}catch(_){} askCloud(SR,"Your voice is reaching the page, but on-device speech isn't turning it into words."); } }
+function traceSpeech(x){ V.trace=(V.trace||[]).concat(x).slice(-4); readout(); }
+async function startSpeech(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ V.speech="unsupported"; setStatus("This browser can't turn speech into words. Type the word in the box."); readout(); return; }
+  try{ if(localStorage.getItem("sculptType.useGoogleSpeech")==="1"){ runSpeech(SR,false); return; } if(localStorage.getItem("sculptType.localSpeechBroken")==="1") V.localBroken=true; }catch(_){}
+  if(V.localBroken){ askCloud(SR,""); return; }
+  let local=false;
+  try{ if(typeof SR.available==="function"){ const st=await SR.available({langs:["en-US"],processLocally:true});
+      if(st==="available") local=true;
+      else if(st==="downloadable"||st==="downloading"){ setStatus("Getting the on-device speech pack for English."); local=await SR.install({langs:["en-US"],processLocally:true}).catch(()=>false); } } }catch(e){}
+  if(local){ runSpeech(SR,true); return; }
+  askCloud(SR,"");
+}
+function runSpeech(SR,local){
+  // a fresh recogniser for every session: reusing one after an abort can leave it stuck
+  const go=()=>{ if(!V.on) return;
+    const rec=new SR(); rec.lang="en-US"; rec.continuous=true; rec.interimResults=false; if(local) rec.processLocally=true;
+    rec.onstart=()=>{ if(V.rec===rec) traceSpeech("listening"); };
+    rec.onaudiostart=()=>{ if(V.rec===rec) traceSpeech("mic open"); };
+    rec.onspeechstart=()=>{ if(V.rec===rec){ traceSpeech("heard speech"); V.speechAt=V.speechAt||performance.now(); } };
+    rec.onnomatch=()=>{ if(V.rec===rec) traceSpeech("no match"); };
+    rec.onresult=e=>{ if(V.rec!==rec) return; V.abortRun=0; V.gotWords=true; V.speechAt=0; const t=e.results[e.results.length-1][0].transcript.trim(); traceSpeech("words"); if(t) heard(t); };
+    rec.onerror=e=>{ if(V.rec!==rec) return; V.speechErr=e.error; traceSpeech("error: "+e.error);
+      // Chrome lets only one tab listen for speech; if we keep getting cut off, another tab has it. Stop and say so.
+      if(e.error==="aborted"&&!local){ V.abortRun=(V.abortRun||0)+1;
+        if(V.abortRun>=4){ V.abortRun=0; V.rec=null; try{rec.onend=null;rec.abort();}catch(_){}
+          V.speech="stopped: another tab"; setStatus("Another tab or window is using speech. Close it (or turn its Voice off), then press Voice here again."); readout(); return; } }
+      if(e.error==="not-allowed"||e.error==="service-not-allowed"){ V.speech="blocked"; V.rec=null; setStatus("The microphone or speech is blocked for this page. Allow the microphone in the address bar, then press Voice again."); }
+      else if(local&&!V.gotWords&&(e.error==="language-not-supported"||e.error==="network"||e.error==="aborted")){ V.localFails=(V.localFails||0)+1;
+        if(true){ V.localBroken=true; try{ localStorage.setItem("sculptType.localSpeechBroken","1"); }catch(_){} V.rec=null; try{rec.abort();}catch(_){} setTimeout(()=>askCloud(SR,"On-device speech keeps stopping on this computer."),400); } }
+      else if(!local&&(e.error==="aborted"||e.error==="audio-capture")&&V.ms&&!V.gotWords){ V.capFails=(V.capFails||0)+1;
+        if(V.capFails>=2){ V.ms.getTracks().forEach(t=>t.stop()); V.ms=null; V.an=null; V.inflate=0; V.stretch=1; V.hum=0;
+          setStatus("Turned off the loudness and pitch effects so speech can use the microphone."); } }
+      else if(e.error==="network") setStatus("Speech can't reach Google's speech service. Check the internet connection.");
+      else if(e.error==="audio-capture") setStatus("Speech can't hear the microphone. Check that no other app is using it, or pick the mic in Chrome's settings.");
+      readout(); };
+    rec.onend=()=>{ if(V.on&&V.rec===rec){ traceSpeech("restarting"); setTimeout(go,300); } };
+    V.rec=rec; try{ rec.start(); }catch(e){ traceSpeech("start failed"); }
+  };
+  V.speech=local?"on this computer":"via Google"; V.localFails=0; go(); readout();
+}
+function askCloud(SR,why){
+  $("consentText").textContent=(why?why+" ":"")+"In this browser, turning speech into words uses Google's speech service: what you say is sent to Google. Your camera never leaves this page.";
+  $("consent").style.display="block";
+  $("consentYes").onclick=()=>{ $("consent").style.display="none"; try{ localStorage.setItem("sculptType.useGoogleSpeech","1"); }catch(_){} setTimeout(()=>runSpeech(SR,false),400); };
+  $("consentNo").onclick=()=>{ $("consent").style.display="none"; V.speech="declined"; setStatus("Speech off. Loudness and pitch still work. Type your word in the box."); readout(); };
+  V.speech="waiting for your choice"; readout();
+}
+const COLOUR_NAMES=Object.fromEntries(COLS.map((c,i)=>[c[0].toLowerCase(),i])); COLOUR_NAMES.pink=0; COLOUR_NAMES.grey=9; COLOUR_NAMES.gray=9;
+// Commands only fire when the whole phrase is a command (one to three words). Anything else becomes the word.
+// Saying "word ..." or "type ..." always sets the word, even if it sounds like a command.
+const CMD={
+  "explode":()=>explode(), "blow it up":()=>explode(),
+  "menu":()=>HM.open?closeHandMenu():openHandMenu(innerWidth/2,innerHeight/2),
+  "see me":()=>{G_.see=1;}, "show me":()=>{G_.see=1;}, "hide me":()=>{G_.see=0;},
+  "new layer":()=>addLayer(), "add layer":()=>addLayer(), "keep":()=>addLayer(), "keep it":()=>addLayer(),
+  "next layer":()=>selectLayer((act+1)%layers.length), "previous layer":()=>selectLayer((act-1+layers.length)%layers.length),
+  "delete layer":()=>deleteLayer(), "hide layer":()=>toggleVisible(act),
+  "snap":()=>savePNG(), "save":()=>savePNG(), "action":()=>startRec(), "cut":()=>stopRec(),
+  "reset":()=>startReset(), "melt":()=>{G_.phys=1;}, "set":()=>{G_.phys=0;A().vel.fill(0);}, "freeze":()=>{G_.phys=0;A().vel.fill(0);},
+  "wobble":()=>{G_.phys=2;}, "shatter":()=>doShatter(), "bigger":()=>nudgeSize(1.15), "smaller":()=>nudgeSize(1/1.15),
+  "next font":()=>{cyc(A(),"font",FONTS); buildWord();}, "next material":()=>cyc(A(),"mat",MATS), "next colour":()=>cyc(A(),"col",COLS), "next color":()=>cyc(A(),"col",COLS),
+  "chrome":()=>{A().mat=0;}, "mirror":()=>{G_.look=1;}, "kaleidoscope":()=>{G_.look=2;}, "trail":()=>{G_.look=3;}, "halftone":()=>{G_.look=4;}, "print":()=>{G_.look=4;}, "plain":()=>{G_.look=0;}
+};
+Object.entries(COLOUR_NAMES).forEach(([c,i])=>{ CMD[c]=()=>{A().col=i; if(!TAKES_COLOUR.has(A().mat)) A().mat=1;}; });
+MATS.forEach((m,i)=>{ CMD[m.toLowerCase()]=()=>{A().mat=i;}; });            // "gold" means the material; "gold colour" the colour
+TOOLS.forEach((t,i)=>{ CMD[t.toLowerCase()]=()=>{G_.tool=i;}; CMD[t.toLowerCase()+" tool"]=()=>{G_.tool=i;}; });
+Object.entries(COLOUR_NAMES).forEach(([c,i])=>{ CMD[c+" colour"]=CMD[c+" color"]=()=>{A().col=i; if(!TAKES_COLOUR.has(A().mat)) A().mat=1;}; });
+// ---------- size: slider, + and - keys, "bigger" / "smaller" ----------
+let szDrag=false; const sz=$("sz");
+sz.addEventListener("input",()=>{ szDrag=true; A().size=sz.value/100; $("szv").textContent=sz.value+"%"; dirty=true; });
+sz.addEventListener("change",()=>{ szDrag=false; });
+sz.addEventListener("keydown",e=>e.stopPropagation());
+function syncSize(){ if(szDrag) return; const v=Math.round(A().size*100); sz.value=v; $("szv").textContent=v+"%"; }
+function nudgeSize(f){ const L=A(); L.size=Math.max(.3,Math.min(1.8,L.size*f)); syncSize(); dirty=true; }
+// ---------- voice help: a card that lists what you can say, and a label that shows what was heard ----------
+let vhelpDismissed=false;
+function placeVhelp(){ const r=stage.getBoundingClientRect(), c=$("vhelp"); c.style.left=Math.round(r.left+14)+"px"; c.style.top=Math.round(r.top+14)+"px"; c.style.maxHeight=Math.round(r.height-28)+"px"; }
+function showVhelp(){ placeVhelp(); $("vhelp").hidden=false; }
+$("vhelpClose").onclick=()=>{ $("vhelp").hidden=true; vhelpDismissed=true; };
+$("vhelpLink").onclick=e=>{ e.preventDefault(); $("vhelp").hidden?showVhelp():($("vhelp").hidden=true); };
+window.addEventListener("resize",()=>{ if(!$("vhelp").hidden) placeVhelp(); });
+let heardTimer=null;
+function showHeard(said,did){ const t=$("heardTag"); const esc=x=>String(x).replace(/[<>&]/g,"");
+  t.innerHTML=`<i>Heard</i> "${esc(said)}" → ${esc(did)}`; t.classList.add("on"); clearTimeout(heardTimer); heardTimer=setTimeout(()=>t.classList.remove("on"),2600); }
+function describe(key){ const L=A();
+  if(MATS.some(m=>m.toLowerCase()===key)||key==="chrome") return `Material: ${MATS[L.mat]}`;
+  if(key in COLOUR_NAMES||/ colou?r$/.test(key)) return `Colour: ${COLS[L.col][0]}`;
+  if(TOOLS.some(t=>key.startsWith(t.toLowerCase()))) return `Tool: ${TOOLS[G_.tool]}`;
+  if(["mirror","kaleidoscope","trail","halftone","print","plain"].includes(key)) return `Look: ${LOOKS[G_.look]}`;
+  if(key==="next font") return `Font: ${FONTS[L.font].n}`; if(key==="next material") return `Material: ${MATS[L.mat]}`; if(key==="next colour"||key==="next color") return `Colour: ${COLS[L.col][0]}`;
+  if(["melt","wobble","set","freeze"].includes(key)) return `Physics: ${PHYS[G_.phys]}`;
+  if(key==="bigger"||key==="smaller") return `Size: ${Math.round(L.size*100)}%`;
+  if(key.includes("layer")||key==="keep"||key==="keep it") return `Layer ${act+1} of ${layers.length}`;
+  return key.charAt(0).toUpperCase()+key.slice(1); }
+function heard(text){ heardInner(text); const st=$("status").textContent; showHeard(text.trim(), st.replace(/^Heard "[^"]*"\.?\s*/,"").replace(/\.$/,"")||"done"); }
+function heardInner(text){
+  const raw=text.trim(), t=raw.toLowerCase().replace(/[.,!?]/g,"").replace(/\s+/g," ").trim(), w=t.split(" "), L=A(); V.heard=raw;
+  const setWord=x=>{ L.word=x.slice(0,24); input.value=L.word; buildWord(L); drawLayerList(); setStatus(`New word: "${L.word}".`); };
+  if((w[0]==="word"||w[0]==="type")&&w.length>1){ setWord(raw.split(/\s+/).slice(1).join(" ")); readout(); return; }
+  if(w[0]==="background"&&w.length>1){ const q=w.slice(1).join(" ");
+    if(q==="none"||q==="off"){ setBackground(null,"none",null); setStatus("Background off."); readout(); return; }
+    setStatus("To add a photo, open Background and choose Your picture."); readout(); return; }
+  let key=t; if(w[0]==="the"&&w.length>1) key=w.slice(1).join(" ");
+  if(w[0]==="font"&&w.length>1){ const name=w.slice(1).join(" "); const i=FONTS.findIndex(f=>f.n.toLowerCase().startsWith(name));
+    if(i>=0){ L.font=i; buildWord(); syncSwitches(); setStatus(`Heard "font ${FONTS[i].n}".`); readout(); return; } }
+  if(w.length<=3 && CMD[key]){ CMD[key](); syncSwitches(); setStatus(describe(key)); readout(); return; }
+  setWord(raw);
+  readout();
+}
+
+// ---------- recording a clip (canvas only, never the camera) ----------
+let mr=null, chunks=[], recStart=0, recTimer=null; const recCanvas=document.createElement("canvas"); const rctx=recCanvas.getContext("2d");
+function pickMime(){ for(const m of ['video/mp4;codecs="avc1.42E01E"','video/mp4','video/webm;codecs=vp9','video/webm']) if(window.MediaRecorder&&MediaRecorder.isTypeSupported(m)) return m; return ""; }
+function composite(ctx){ const print=LOOKS[G_.look]==="Halftone"; ctx.fillStyle=print?"#e6e4de":"#0b0b0a"; ctx.fillRect(0,0,W,H);
+  const see=G_.see>0&&camState==="on"&&video.videoWidth;
+  if(BG.img&&!print){ drawCover(ctx,BG.img,0,0,W,H); ctx.fillStyle=`rgba(11,11,10,${BG.dim})`; ctx.fillRect(0,0,W,H); }
+  if(see&&G_.see===1&&!print){ drawMirror(ctx,0,0,W,H,.5); }
+  if(BG.img&&!print){ ctx.save(); const dpr=W/stage.getBoundingClientRect().width; ctx.filter=`drop-shadow(0 ${6*dpr}px ${14*dpr}px rgba(0,0,0,.55))`; ctx.drawImage(cv,0,0); ctx.restore(); } else ctx.drawImage(cv,0,0);
+  if(BG.img&&BG.credit&&!print){ const dpr=W/stage.getBoundingClientRect().width; ctx.font=`600 ${11*dpr}px "Helvetica Neue",Arial,sans-serif`; ctx.fillStyle="rgba(242,240,234,.85)"; ctx.textAlign="left"; ctx.fillText(`Photo: ${BG.credit.name} on Unsplash`,12*dpr,22*dpr); } if(FX.on) ctx.drawImage($("fx"),0,0,W,H);
+  if(see&&G_.see===2){ const dpr=W/stage.getBoundingClientRect().width, bw=W*.24, bh=bw*9/16, bx=W-20*dpr-bw, by=20*dpr;
+    drawMirror(ctx,bx,by,bw,bh,1); ctx.strokeStyle="#f2f0ea"; ctx.lineWidth=2*dpr; ctx.strokeRect(bx,by,bw,bh); } }
+function drawMirror(ctx,x,y,w,h,alpha){ const vw=video.videoWidth, vh=video.videoHeight, s=Math.max(w/vw,h/vh), sw=w/s, sh=h/s, sx=(vw-sw)/2, sy=(vh-sh)/2;
+  ctx.save(); ctx.globalAlpha=alpha; ctx.translate(x+w,y); ctx.scale(-1,1); ctx.drawImage(video,sx,sy,sw,sh,0,0,w,h); ctx.restore(); }
+function startRec(){ if(mr) return; const mime=pickMime(); if(!mime){ setStatus("This browser can't record clips. Save PNG still works."); return; }
+  recCanvas.width=W&~1; recCanvas.height=H&~1; composite(rctx);
+  const st=recCanvas.captureStream(30); mr=new MediaRecorder(st,{mimeType:mime,videoBitsPerSecond:12e6}); chunks=[];
+  mr.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
+  mr.onstop=()=>{ const ext=mime.includes("mp4")?"mp4":"webm"; download(new Blob(chunks,{type:mime.split(";")[0]}),`sculpt-type_${slug()}_${stamp()}.${ext}`); mr=null; $("rec").setAttribute("aria-pressed","false"); $("reclabel").textContent="Record clip"; setStatus("Clip saved."); };
+  mr.start(250); recStart=performance.now(); $("rec").setAttribute("aria-pressed","true");
+  recTimer=setInterval(()=>{ const s=(performance.now()-recStart)/1000; $("reclabel").textContent=`Stop ${Math.floor(s)}s`; if(s>=30) stopRec(); },250); }
+function stopRec(){ if(!mr) return; clearInterval(recTimer); mr.stop(); }
+$("rec").onclick=()=>mr?stopRec():startRec();
+
+// ---------- save PNG ----------
+const slug=()=>(layers.map(L=>L.word.trim()).filter(Boolean).join(" ")||"word").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40);
+const stamp=()=>new Date().toISOString().slice(0,19).replace(/[:T]/g,"-");
+function download(blob,name){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); }
+function savePNG(){ renderLayers(); const c=document.createElement("canvas"); c.width=W; c.height=H; composite(c.getContext("2d")); c.toBlob(b=>download(b,`sculpt-type_${slug()}_${stamp()}.png`),"image/png"); }
+$("save").onclick=savePNG;
+
+// ---------- live readout (real state only) ----------
+const fmt=v=>v.toFixed(3);
+function readout(){
+  const L=A(); if(!L) return;
+  const hs=camState==="on"?[`<b>Hands</b> `+hands.map((h,i)=>`${i?"R":"L"} ${h.seen?(h.clicking?"chose "+(h.hover?.textContent||"").trim().slice(0,18):h.sculpting?"sculpting":h.hover?"on "+h.hover.textContent.trim().slice(0,18):h.grab?"pinching":"seen"):"not seen"}`).join(", ")]:[];
+  const cam={off:"off",asking:"asking",loading:"loading tracker",on:`on, ${video.videoWidth} x ${video.videoHeight}`,blocked:"blocked",none:"none found",error:"failed"}[camState];
+  const voice=V.on?`level ${V.level.toFixed(2)}${V.pitch?`, ${Math.round(V.pitch)} Hz`:""}`:"off";
+  const speech={off:"off","on this computer":"words: on this computer","via Google":"words: sent to Google",declined:"words: off",unsupported:"words: not in this browser",blocked:"words: blocked"}[V.speech]||V.speech;
+  requestAnimationFrame(placeBand); if(typeof syncSize==="function") syncSize(); $("readout").innerHTML=(document.body.classList.contains("A")?"":`<b>Layer</b> ${act+1} of ${layers.length}${L.shatterOn?", shattered":""}<br><b>Pull</b> ${fmt(L.fieldMax)}<br>`)+`${hs.length?hs.join("<br>")+"<br>":""}<b>Camera</b> ${cam}<br><b>Voice</b> ${voice}${V.on?`<br><b>Speech</b> ${speech}${V.trace&&V.trace.length?" · "+V.trace.join(" → "):""}`:""}${V.heard?`<br><b>Heard</b> ${V.heard.replace(/[<>&]/g,"").slice(0,32)}`:""}<br><b>See me</b> ${SEE[G_.see]}<br><b>Video</b> ${G_.see&&camState==="on"?"on screen and in saves, stays on this computer":"stays on this page"}`;
+}
+
+// ---------- render: every visible layer, bottom to top ----------
+let t0=performance.now(); const shardU=new Float32Array(NT*3);
+function renderLayers(){
+  const look=LOOKS[G_.look], trail=look==="Trail";
+  gl.bindFramebuffer(gl.FRAMEBUFFER,fbo[cur]); gl.viewport(0,0,W,H); gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.enable(gl.BLEND); gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
+  if(trail){ gl.useProgram(PF); gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D,ftex[1-cur]); gl.uniform1f(UF("k"),.93); gl.drawArrays(gl.TRIANGLE_STRIP,0,4); }
+  gl.useProgram(PW);
+  gl.uniform2f(UW("res"),W>>1,H>>1); gl.uniform1f(UW("aspect"),W/H); gl.uniform1f(UW("camOn"),camState==="on"?1:0); bgUniforms();
+  gl.uniform1f(UW("look"),look==="Mirror"?1:look==="Kaleidoscope"?2:0); gl.uniform1f(UW("t"),(performance.now()-t0)/1000); gl.uniform2fv(UW("gv"),gv);
+  gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D,texCam);
+  layers.forEach((L,i)=>{ if(!L.visible||!L.built) return; const active=i===act;
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,L.texSharp);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D,L.texHeight);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D,L.texField);
+    gl.uniform1f(UW("mat"),L.mat); const cover=PK.kind?pickShift():0; gl.uniform2f(UW("offset"),(L.ox+.5)*(1-cover)-.5,L.oy);
+    gl.uniform1f(UW("size"),L.size*(active?1+.14*V.inflate:1)*(1-cover)); gl.uniform1f(UW("stretchY"),active?V.stretch:1); gl.uniform1f(UW("ripple"),active?V.hum:0);
+    gl.uniform1f(UW("shatterOn"),L.shatterOn?1:0);
+    const hex=COLS[L.col][1]; gl.uniform3f(UW("tint"),parseInt(hex.slice(1,3),16)/255,parseInt(hex.slice(3,5),16)/255,parseInt(hex.slice(5,7),16)/255);
+    L.shards.forEach((s,k)=>{shardU[k*3]=s.ox;shardU[k*3+1]=s.oy;shardU[k*3+2]=s.r;}); gl.uniform3fv(UW("shard"),shardU);
+    gl.drawArrays(gl.TRIANGLE_STRIP,0,4); });
+  gl.disable(gl.BLEND);
+  gl.useProgram(PO); gl.bindFramebuffer(gl.FRAMEBUFFER,null); gl.viewport(0,0,W,H);
+  gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D,ftex[cur]);
+  gl.uniform1f(UO("halftone"),look==="Halftone"?1:0); gl.uniform2f(UO("res"),W,H);
+  gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT); gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+  cur=1-cur; dirty=false;
+}
+let frame=0;
+// ---------- explode: everything blows apart from the middle, black and white spirals spread out, then fade to an empty canvas ----------
+// Health rule: no flash, no strobe. The spiral pattern turns at 0.55 cycles a second, so any point changes from dark to light
+// about once a second (well under 3). Light is the paper off-white, faded in and out over 0.6 s, never a sudden white frame.
+const FX={on:false,t0:0,erased:false}; const fxc=$("fx"), fxx=fxc.getContext("2d"); const FXW=640, FXH=360; let fxImg=null;
+function explode(){
+  if(FX.on) return; FX.on=true; FX.t0=performance.now(); FX.erased=false;
+  layers.forEach(L=>{ L.shatterOn=true; L.shards.forEach(sh=>{ const dx=sh.cx-.5, dy=sh.cy-.5, d=Math.hypot(dx,dy)+.04, sp=.018+.012*Math.random();
+    sh.vx=dx/d*sp; sh.vy=dy/d*sp; sh.vr=(Math.random()-.5)*.12; sh.home=false; }); });
+  fxc.width=FXW; fxc.height=FXH; fxImg=fxx.createImageData(FXW,FXH); fxc.style.display="block"; setStatus("Boom.");
+}
+function fxStep(){
+  if(!FX.on) return;
+  const t=(performance.now()-FX.t0)/1000, T_GROW=.7, T_HOLD=1.5, T_END=2.3;
+  const maxR=Math.hypot(FXW/2,FXH/2), R=maxR*Math.min(1,Math.pow(t/T_GROW,.8))*1.05;
+  const fade = t<T_HOLD?1:Math.max(0,1-(t-T_HOLD)/(T_END-T_HOLD));
+  const phase=t*.55, arms=6, k=2.2, d=fxImg.data, cx=FXW/2, cy=FXH/2;
+  const ink=[11,11,10], paper=[242,240,234];
+  for(let y=0;y<FXH;y++) for(let x=0;x<FXW;x++){
+    const dx=x-cx+.5, dy=y-cy+.5, r=Math.hypot(dx,dy), i=(y*FXW+x)*4;
+    if(r>R){ d[i+3]=0; continue; }
+    const a=Math.atan2(dy,dx), sv=a*arms/(2*Math.PI) - Math.log(r+1)*k + phase;
+    const arm=((Math.floor(sv)%arms)+arms)%arms, cut=[.38,.55,.46,.62,.42,.5][arm];        // unequal arm widths, like a cut stencil
+    const f=sv-Math.floor(sv), w=Math.min(1,Math.max(0,(f-cut)*60+.5));                    // hard edge (one or two pixels of anti-aliasing)
+    const c0=ink, c1=paper; d[i]=c0[0]+(c1[0]-c0[0])*w; d[i+1]=c0[1]+(c1[1]-c0[1])*w; d[i+2]=c0[2]+(c1[2]-c0[2])*w;
+    const edge=Math.min(1,(R-r)/6); d[i+3]=255*fade*edge;
+  }
+  fxx.putImageData(fxImg,0,0);
+  if(!FX.erased&&t>T_GROW+.15){ FX.erased=true;     // the canvas is covered: clear every layer behind the spirals
+    layers.forEach(freeLayer); layers=[makeLayer(null)]; act=0; const L=A(); L.word=""; uploadField(L); syncLayer(); buildWord(L); }
+  if(t>=T_END){ FX.on=false; fxc.style.display="none"; setStatus("Clean canvas. Type or say a new word."); }
+  dirty=true;
+}
+function loop(){
+  trackHands(); voiceStep(); fxStep();
+  const L=A(), grabbing=!!mouse||hands.some(h=>h.sculpting);
+  if(TOOLS[G_.tool]==="Magnet"){ if(mouse){ const [u,v]=toUV(mouse.x,mouse.y); magnetAt(u,v); } hands.forEach(h=>{ if(h.sculpting) magnetAt(h.u,h.v); }); }
+  let sweep=null; if(mouse) sweep=toUV(mouse.x,mouse.y); else { const h=hands.find(h=>h.sculpting); if(h) sweep=[h.u,h.v]; }
+  layers.forEach(Ly=>{ physicsStep(Ly, Ly===L&&grabbing); shardStep(Ly, Ly===L?sweep:null); if(Ly.fieldDirty) uploadField(Ly); });
+  if(dirty||LOOKS[G_.look]==="Trail"||V.on||mr) renderLayers();
+  if(mr){ rctx.clearRect(0,0,recCanvas.width,recCanvas.height); composite(rctx); }
+  if((frame++&7)===0) readout();
+  requestAnimationFrame(loop);
+}
+layers=[makeLayer(null)]; act=0;
+syncLayer(); layoutA(); resize(); requestAnimationFrame(loop);
+window.SCULPT={renderLayers,get glc(){return gl;},showIntro,showVhelp,setBackground,loadImage,togglePicker,get BG(){return BG;},explode,get FX(){return FX;},openHandMenu,showGuide,togglePicker,FONTS,MATS,hands,processHands,pickTarget,setHover,applyTool,startReset,doShatter,heard,addLayer,selectLayer,deleteLayer,G_,get layers(){return layers;},get act(){return act;},A,syncSwitches,buildWord,ready:true};
+</script>
+</body>
+</html>
