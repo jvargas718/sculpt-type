@@ -4,7 +4,7 @@ Shape type with your hands and your voice, right in the browser. Pinch a letter 
 
 **Try it:** **[jvargas718.github.io/sculpt-type](https://jvargas718.github.io/sculpt-type/)** (nothing to install)
 
-![Sculpt Type: liquid-metal letters pulled into swirls over the webcam view, with the control panel on the right](docs/preview.jpg)
+[![Sculpt Type in use: liquid-metal letters pulled into swirls, then the word COLORS turning blue, red and yellow as the colours are spoken](docs/preview.gif)](https://jvargas718.github.io/sculpt-type/)
 
 ## How to use it
 
